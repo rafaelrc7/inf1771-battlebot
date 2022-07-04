@@ -4,6 +4,13 @@ const danger_decay = 1
 const danger_base = 50
 
 const (
+	north = iota
+	east  = iota
+	south = iota
+	west  = iota
+)
+
+const (
 	wall      = iota
 	dangerous = iota
 	unknown   = iota

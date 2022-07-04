@@ -17,13 +17,6 @@ const name = "Centurion"
 const time_delta = 1 * time.Second
 
 const (
-	north = iota
-	east  = iota
-	south = iota
-	west  = iota
-)
-
-const (
 	gameover = iota
 	ready    = iota
 	game     = iota
