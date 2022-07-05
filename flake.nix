@@ -17,7 +17,7 @@
             inherit system;
             overlays = [ (final: prev: { go = final.go_1_18; }) ];
           };
-          pkg = pkgs.buildGoModule {
+          pkg = pkgs.buildGo118Module {
             pname = "inf1771-battlebot";
             inherit version;
             src = ./.;
