@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+import (
+	"github.com/rafaelrc7/inf1771-battlebot/ai"
+	"github.com/rafaelrc7/inf1771-battlebot/gamemap"
+)
+
 const host = "atari.icad.puc-rio.br"
 const port = "8888"
 
@@ -88,13 +93,13 @@ func getStateVal(state string) int {
 func getDirVal(state string) int {
 	switch strings.ToLower(state) {
 	case "north":
-		return north
+		return gamemap.NORTH
 	case "east":
-		return east
+		return gamemap.EAST
 	case "south":
-		return south
+		return gamemap.SOUTH
 	case "west":
-		return west
+		return gamemap.WEST
 	}
 
 	return -1
@@ -106,7 +111,7 @@ func botLoop(msgs chan []string, c net.Conn) {
 	status := GameState{
 		x:      0,
 		y:      0,
-		dir:    north,
+		dir:    gamemap.NORTH,
 		state:  ready,
 		score:  0,
 		energy: 0,
@@ -163,27 +168,27 @@ func botLoop(msgs chan []string, c net.Conn) {
 }
 
 func doDecision(c net.Conn) {
-	decision := getDecision()
+	decision := ai.GetDecision()
 	switch decision {
-	case turn_right:
+	case ai.TURN_RIGHT:
 		sendTurnRight(c)
 
-	case turn_left:
+	case ai.TURN_LEFT:
 		sendTurnLeft(c)
 
-	case forward:
+	case ai.FORWARD:
 		sendForward(c)
 
-	case backward:
+	case ai.BACKWARD:
 		sendBackward(c)
 
-	case attack:
+	case ai.ATTACK:
 		sendShoot(c)
 
-	case take_gold:
+	case ai.TAKE_GOLD:
 		sendGetItem(c)
 
-	case take_powerup:
+	case ai.TAKE_POWERUP:
 		sendGetItem(c)
 	}
 
