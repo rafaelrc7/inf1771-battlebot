@@ -13,7 +13,10 @@
     let lastModifiedDate = self.lastModifiedDate or self.lastModified or "19700101";
         version = builtins.substring 0 8 self.lastModifiedDate;
     in flake-utils.lib.eachDefaultSystem (system:
-      let pkgs = import nixpkgs { inherit system; };
+      let pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ (final: prev: { go = final.go_1_18; }) ];
+          };
           pkg = pkgs.buildGoModule {
             pname = "inf1771-battlebot";
             inherit version;
