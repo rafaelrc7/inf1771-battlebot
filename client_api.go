@@ -7,102 +7,115 @@ import (
 	"strings"
 )
 
-type cmdHandler func([]string)
+type CmdHandler func([]string)
+type Client struct {
+	IsConnected      bool
+	message_handlers []CmdHandler
+	host, port       string
+	conn             net.Conn
+}
 
-func connect(host, port string, handlers []cmdHandler) (c net.Conn, err error) {
-	c, err = net.Dial("tcp", host+":"+port)
+func ClientNew(host, port string, handlers []CmdHandler) (c *Client, err error) {
+	c = &Client{
+		message_handlers: handlers,
+		host:             host,
+		port:             port,
+	}
+	c.conn, err = net.Dial("tcp", host+":"+port)
 
 	if err == nil {
-		go clientLoop(c, handlers)
+		c.IsConnected = true
+		go c.clientLoop()
 	}
 
 	return c, err
 }
 
-func disconnect(c net.Conn) {
-	sendGoodbye(c)
-	c.Close()
+func (c *Client) Disconnect() {
+	c.SendGoodbye()
+	c.IsConnected = false
+	c.conn.Close()
 }
 
-func sendMsg(c net.Conn, msg string) (n int, err error) {
-	return fmt.Fprintf(c, msg+"\n")
+func (c *Client) SendMsg(msg string) (n int, err error) {
+	return fmt.Fprintf(c.conn, msg+"\n")
 }
 
-func sendForward(c net.Conn) (n int, err error) {
-	return sendMsg(c, "w")
+func (c *Client) SendForward() (n int, err error) {
+	return c.SendMsg("w")
 }
 
-func sendBackward(c net.Conn) (n int, err error) {
-	return sendMsg(c, "s")
+func (c *Client) SendBackward() (n int, err error) {
+	return c.SendMsg("s")
 }
 
-func sendTurnLeft(c net.Conn) (n int, err error) {
-	return sendMsg(c, "a")
+func (c *Client) SendTurnLeft() (n int, err error) {
+	return c.SendMsg("a")
 }
 
-func sendTurnRight(c net.Conn) (n int, err error) {
-	return sendMsg(c, "d")
+func (c *Client) SendTurnRight() (n int, err error) {
+	return c.SendMsg("d")
 }
 
-func sendGetItem(c net.Conn) (n int, err error) {
-	return sendMsg(c, "t")
+func (c *Client) SendGetItem() (n int, err error) {
+	return c.SendMsg("t")
 }
 
-func sendShoot(c net.Conn) (n int, err error) {
-	return sendMsg(c, "e")
+func (c *Client) SendShoot() (n int, err error) {
+	return c.SendMsg("e")
 }
 
-func sendRequestObservation(c net.Conn) (n int, err error) {
-	return sendMsg(c, "o")
+func (c *Client) SendRequestObservation() (n int, err error) {
+	return c.SendMsg("o")
 }
 
-func sendRequestGameStatus(c net.Conn) (n int, err error) {
-	return sendMsg(c, "g")
+func (c *Client) SendRequestGameStatus() (n int, err error) {
+	return c.SendMsg("g")
 }
 
-func sendRequestUserStatus(c net.Conn) (n int, err error) {
-	return sendMsg(c, "q")
+func (c *Client) SendRequestUserStatus() (n int, err error) {
+	return c.SendMsg("q")
 }
 
-func sendRequestPosition(c net.Conn) (n int, err error) {
-	return sendMsg(c, "p")
+func (c *Client) SendRequestPosition() (n int, err error) {
+	return c.SendMsg("p")
 }
 
-func sendRequestScoreboard(c net.Conn) (n int, err error) {
-	return sendMsg(c, "u")
+func (c *Client) SendRequestScoreboard() (n int, err error) {
+	return c.SendMsg("u")
 }
 
-func sendGoodbye(c net.Conn) (n int, err error) {
-	return sendMsg(c, "quit")
+func (c *Client) SendGoodbye() (n int, err error) {
+	return c.SendMsg("quit")
 }
 
-func sendName(c net.Conn, name string) (n int, err error) {
-	return sendMsg(c, "name;"+name)
+func (c *Client) SendName(name string) (n int, err error) {
+	return c.SendMsg("name;" + name)
 }
 
-func sendSay(c net.Conn, msg string) (n int, err error) {
-	return sendMsg(c, "say;"+msg)
+func (c *Client) SendSay(msg string) (n int, err error) {
+	return c.SendMsg("say;" + msg)
 }
 
-func sendColour(c net.Conn, r uint8, g uint8, b uint8) (n int, err error) {
-	return sendMsg(c, fmt.Sprintf("color;%d;%d;%d", r, g, b))
+func (c *Client) SendColour(r uint8, g uint8, b uint8) (n int, err error) {
+	return c.SendMsg(fmt.Sprintf("color;%d;%d;%d", r, g, b))
 }
 
-func processCommand(cmd string, handlers []cmdHandler) {
+func (c *Client) processCommand(cmd string) {
 	cmd = strings.TrimSpace(cmd)
 	if len(cmd) > 0 {
 		cmd := strings.Split(cmd, ";")
-		for _, handler := range handlers {
+		for _, handler := range c.message_handlers {
 			handler(cmd)
 		}
 	}
 }
 
-func clientLoop(c net.Conn, handlers []cmdHandler) {
-	for {
-		msg, err := bufio.NewReader(c).ReadString('\n')
+func (c *Client) clientLoop() {
+	for c.IsConnected {
+		msg, err := bufio.NewReader(c.conn).ReadString('\n')
 		if err == nil {
-			processCommand(msg, handlers)
+			c.processCommand(msg)
 		}
 	}
 }

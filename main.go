@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -18,7 +17,7 @@ import (
 const host = "atari.icad.puc-rio.br"
 const port = "8888"
 
-const name = "Centurion"
+const name = "xxxxxxx"
 const time_delta = 1 * time.Second
 
 const width = 59
@@ -39,7 +38,7 @@ type GameState struct {
 func main() {
 	messages := make(chan []string, 20)
 
-	c, err := connect(host, port, []cmdHandler{
+	c, err := ClientNew(host, port, []CmdHandler{
 		func(cmd []string) {
 			handler(messages, cmd)
 		},
@@ -54,7 +53,7 @@ func main() {
 
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	disconnect(c)
+	c.Disconnect()
 }
 
 func handler(msgs chan []string, cmd []string) {
@@ -79,7 +78,7 @@ func handler(msgs chan []string, cmd []string) {
 	}
 }
 
-func botLoop(msgs chan []string, c net.Conn) {
+func botLoop(msgs chan []string, c *Client) {
 	var msgSeconds time.Duration = 0
 	initialised := false
 
@@ -90,7 +89,7 @@ func botLoop(msgs chan []string, c net.Conn) {
 
 	for status.state != game {
 		msg := <-msgs
-		sendRequestGameStatus(c)
+		c.SendRequestGameStatus()
 		switch strings.ToLower(msg[0]) {
 		case "g":
 			state := getStateVal(msg[1])
@@ -98,7 +97,7 @@ func botLoop(msgs chan []string, c net.Conn) {
 				fmt.Println("New Game State: " + msg[1])
 				status.state = state
 				if state == game {
-					sendRequestUserStatus(c)
+					c.SendRequestUserStatus()
 				}
 			}
 		}
@@ -120,8 +119,8 @@ func botLoop(msgs chan []string, c net.Conn) {
 		}
 	}
 
-	sendName(c, name)
-	sendColour(c, 255, 0, 0)
+	//sendName(c, name)
+	c.SendColour(255, 0, 0)
 
 	for status.state == game {
 		is_msgs_empty := false
@@ -136,8 +135,8 @@ func botLoop(msgs chan []string, c net.Conn) {
 						fmt.Println("New Game State: " + msg[1])
 						status.state = state
 						if state == game {
-							sendRequestUserStatus(c)
-							sendRequestObservation(c)
+							c.SendRequestUserStatus()
+							c.SendRequestObservation()
 						}
 					}
 				case "s":
@@ -162,47 +161,47 @@ func botLoop(msgs chan []string, c net.Conn) {
 			doDecision(c, &status.ai)
 		} else {
 			if msgSeconds >= 5*time.Second {
-				sendRequestGameStatus(c)
-				sendRequestScoreboard(c)
+				c.SendRequestGameStatus()
+				c.SendRequestScoreboard()
 				msgSeconds = 0
 			}
 		}
 
-		sendRequestUserStatus(c)
-		sendRequestObservation(c)
+		c.SendRequestUserStatus()
+		c.SendRequestObservation()
 
 		time.Sleep(time_delta)
 		msgSeconds += time_delta
 	}
 }
 
-func doDecision(c net.Conn, drone_ai *ai.AI) {
+func doDecision(c *Client, drone_ai *ai.AI) {
 	decision := drone_ai.GetDecision()
 	switch decision {
 	case ai.TURN_RIGHT:
-		sendTurnRight(c)
+		c.SendTurnRight()
 
 	case ai.TURN_LEFT:
-		sendTurnLeft(c)
+		c.SendTurnLeft()
 
 	case ai.FORWARD:
-		sendForward(c)
+		c.SendForward()
 
 	case ai.BACKWARD:
-		sendBackward(c)
+		c.SendBackward()
 
 	case ai.ATTACK:
-		sendShoot(c)
+		c.SendShoot()
 
 	case ai.TAKE_GOLD:
-		sendGetItem(c)
+		c.SendGetItem()
 
 	case ai.TAKE_POWERUP:
-		sendGetItem(c)
+		c.SendGetItem()
 	}
 
-	sendRequestUserStatus(c)
-	sendRequestObservation(c)
+	c.SendRequestUserStatus()
+	c.SendRequestObservation()
 }
 
 func printScoreboard(scoreboard []string) {
