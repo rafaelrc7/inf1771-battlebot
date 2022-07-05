@@ -14,7 +14,6 @@ type CoordHeap []*CoordCost
 
 func CoordHeapNew() *CoordHeap {
 	h := &CoordHeap{}
-	heap.Init(h)
 	return h
 }
 
@@ -27,21 +26,21 @@ func (h *CoordHeap) Push(x any) {
 func (h *CoordHeap) Pop() any {
 	old := *h
 	n := len(old)
-	c := old[n-1]
+	c := old[n-1].Coord
 	old[n-1] = nil
 	*h = old[0 : n-1]
 	return c
 }
 
-func (h *CoordHeap) PushCoord(c gamemap.Coord, Priority float64) {
-	heap.Push(h, &CoordCost{Coord: c, Priority: Priority})
+func (h *CoordHeap) PushCoord(c gamemap.Coord, priority float64) {
+	heap.Push(h, &CoordCost{Coord: c, Priority: priority})
 }
 
-func (h *CoordHeap) TryUpdate(c gamemap.Coord, Priority float64) bool {
+func (h *CoordHeap) TryUpdate(c gamemap.Coord, priority float64) bool {
 	for i, v := range *h {
 		if c == v.Coord {
-			if Priority < v.Priority {
-				v.Priority = Priority
+			if priority < v.Priority {
+				v.Priority = priority
 				heap.Fix(h, i)
 				return true
 			} else {
