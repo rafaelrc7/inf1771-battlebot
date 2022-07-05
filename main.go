@@ -35,24 +35,25 @@ type GameState struct {
 	energy int
 }
 
-func printScoreboard(scoreboard []string) {
-	fmt.Println("----- SCOREBOARD -----")
-	for i, s := range scoreboard {
-		info := strings.Split(s, "#")
+func main() {
+	messages := make(chan []string, 20)
 
-		score, err := strconv.Atoi(info[2])
-		if err != nil {
-			score = 0
-		}
-
-		hp, err := strconv.Atoi(info[3])
-		if err != nil {
-			hp = 0
-		}
-
-		fmt.Printf("%3d. %s (%s)\nHP = %3d - SCORE: %-6d\n\n", i, info[0], info[1], hp, score)
+	c, err := connect(host, port, []cmdHandler{
+		func(cmd []string) {
+			handler(messages, cmd)
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
-	fmt.Println("----------------------")
+
+	time.Sleep(1 * time.Second)
+	go botLoop(messages, c)
+
+	bufio.NewReader(os.Stdin).ReadString('\n')
+
+	disconnect(c)
 }
 
 func handler(msgs chan []string, cmd []string) {
@@ -75,34 +76,6 @@ func handler(msgs chan []string, cmd []string) {
 	default:
 		msgs <- cmd
 	}
-}
-
-func getStateVal(state string) int {
-	switch strings.ToLower(state) {
-	case "gameover":
-		return gameover
-	case "ready":
-		return ready
-	case "game":
-		return game
-	}
-
-	return -1
-}
-
-func getDirVal(state string) int {
-	switch strings.ToLower(state) {
-	case "north":
-		return gamemap.NORTH
-	case "east":
-		return gamemap.EAST
-	case "south":
-		return gamemap.SOUTH
-	case "west":
-		return gamemap.WEST
-	}
-
-	return -1
 }
 
 func botLoop(msgs chan []string, c net.Conn) {
@@ -196,23 +169,50 @@ func doDecision(c net.Conn) {
 	sendRequestObservation(c)
 }
 
-func main() {
-	messages := make(chan []string, 20)
+func printScoreboard(scoreboard []string) {
+	fmt.Println("----- SCOREBOARD -----")
+	for i, s := range scoreboard {
+		info := strings.Split(s, "#")
 
-	c, err := connect(host, port, []cmdHandler{
-		func(cmd []string) {
-			handler(messages, cmd)
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-		return
+		score, err := strconv.Atoi(info[2])
+		if err != nil {
+			score = 0
+		}
+
+		hp, err := strconv.Atoi(info[3])
+		if err != nil {
+			hp = 0
+		}
+
+		fmt.Printf("%3d. %s (%s)\nHP = %3d - SCORE: %-6d\n\n", i, info[0], info[1], hp, score)
+	}
+	fmt.Println("----------------------")
+}
+
+func getStateVal(state string) int {
+	switch strings.ToLower(state) {
+	case "gameover":
+		return gameover
+	case "ready":
+		return ready
+	case "game":
+		return game
 	}
 
-	time.Sleep(1 * time.Second)
-	go botLoop(messages, c)
+	return -1
+}
 
-	bufio.NewReader(os.Stdin).ReadString('\n')
+func getDirVal(state string) int {
+	switch strings.ToLower(state) {
+	case "north":
+		return gamemap.NORTH
+	case "east":
+		return gamemap.EAST
+	case "south":
+		return gamemap.SOUTH
+	case "west":
+		return gamemap.WEST
+	}
 
-	disconnect(c)
+	return -1
 }
