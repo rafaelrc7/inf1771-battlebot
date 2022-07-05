@@ -1,6 +1,6 @@
 package gamemap
 
-func GetAdjacentPositions(m *Map, pos Coord) (adjs []Coord) {
+func (m *Map) GetAdjacentPositions(pos Coord) (adjs []Coord) {
 	adjs = make([]Coord, 4)
 
 	switch pos.D {

@@ -23,7 +23,7 @@ type Map struct {
 	DangerCells  map[Coord]*Cell
 }
 
-func NewMap(h, w int) Map {
+func NewMap(h, w int) *Map {
 	var m Map
 
 	m.Height = h
@@ -38,10 +38,10 @@ func NewMap(h, w int) Map {
 	m.PowerupCells = make(map[Coord]uint64)
 	m.DangerCells = make(map[Coord]*Cell)
 
-	return m
+	return &m
 }
 
-func Tick(m *Map) {
+func (m *Map) Tick() {
 	for key, val := range m.DangerCells {
 		val.DangerLevel--
 		if val.DangerLevel <= 0 {
@@ -61,7 +61,7 @@ func Tick(m *Map) {
 	}
 }
 
-func GetAdjacentCells(m *Map, c Coord) (adjs []Coord) {
+func (m *Map) GetAdjacentCells(c Coord) (adjs []Coord) {
 	adjs = make([]Coord, 4)
 
 	if c.X > 0 {
@@ -80,19 +80,19 @@ func GetAdjacentCells(m *Map, c Coord) (adjs []Coord) {
 	return adjs
 }
 
-func VisitCell(m *Map, c Coord, senses uint) {
+func (m *Map) VisitCell(c Coord, senses uint) {
 	if m.Cells[c.X][c.Y].Visited {
 		return
 	}
 
-	adjs := GetAdjacentCells(m, c)
+	adjs := m.GetAdjacentCells(c)
 	m.Cells[c.X][c.Y].Visited = true
 	m.Cells[c.X][c.Y].Senses |= senses
 
 	for _, ac := range adjs {
 		status := &m.Cells[ac.X][ac.Y].Status
 		if *status == UNKNOWN || *status == DANGEROUS {
-			if isPossibleHole(m, ac) || isPossibleTeleport(m, ac) {
+			if m.isPossibleHole(ac) || m.isPossibleTeleport(ac) {
 				*status = DANGEROUS
 			} else {
 				*status = UNKNOWN
@@ -109,12 +109,12 @@ func VisitCell(m *Map, c Coord, senses uint) {
 	}
 }
 
-func AddDanger(m *Map, c Coord) {
+func (m *Map) AddDanger(c Coord) {
 	m.Cells[c.X][c.Y].DangerLevel = danger_base
 }
 
-func isPossibleHole(m *Map, c Coord) bool {
-	adjs := GetAdjacentCells(m, c)
+func (m *Map) isPossibleHole(c Coord) bool {
+	adjs := m.GetAdjacentCells(c)
 	for _, ac := range adjs {
 		if m.Cells[ac.X][ac.Y].Visited && m.Cells[ac.X][ac.Y].Senses&BREEZE == 0 {
 			return false
@@ -123,8 +123,8 @@ func isPossibleHole(m *Map, c Coord) bool {
 	return true
 }
 
-func isPossibleTeleport(m *Map, c Coord) bool {
-	adjs := GetAdjacentCells(m, c)
+func (m *Map) isPossibleTeleport(c Coord) bool {
+	adjs := m.GetAdjacentCells(c)
 	for _, ac := range adjs {
 		if m.Cells[ac.X][ac.Y].Visited && m.Cells[ac.X][ac.Y].Senses&FLASH == 0 {
 			return false
