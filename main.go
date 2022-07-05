@@ -21,6 +21,9 @@ const port = "8888"
 const name = "Centurion"
 const time_delta = 1 * time.Second
 
+const width = 59
+const height = 34
+
 const (
 	gameover = iota
 	ready    = iota
@@ -28,11 +31,9 @@ const (
 )
 
 type GameState struct {
-	x, y   int64
-	dir    int
-	state  int
-	score  int64
-	energy int
+	state int
+	score int64
+	ai    ai.AI
 }
 
 func main() {
@@ -80,22 +81,49 @@ func handler(msgs chan []string, cmd []string) {
 
 func botLoop(msgs chan []string, c net.Conn) {
 	var msgSeconds time.Duration = 0
+	initialised := false
 
 	status := GameState{
-		x:      0,
-		y:      0,
-		dir:    gamemap.NORTH,
-		state:  ready,
-		score:  0,
-		energy: 0,
+		state: ready,
+		score: 0,
+	}
+
+	for status.state != game {
+		msg := <-msgs
+		sendRequestGameStatus(c)
+		switch strings.ToLower(msg[0]) {
+		case "g":
+			state := getStateVal(msg[1])
+			if state != status.state {
+				fmt.Println("New Game State: " + msg[1])
+				status.state = state
+				if state == game {
+					sendRequestUserStatus(c)
+				}
+			}
+		}
+	}
+
+	for !initialised {
+		msg := <-msgs
+		switch strings.ToLower(msg[0]) {
+		case "s":
+			var c gamemap.Coord
+			c.X, _ = strconv.Atoi(msg[1])
+			c.Y, _ = strconv.Atoi(msg[2])
+			c.D = getDirVal(msg[3])
+			status.score, _ = strconv.ParseInt(msg[5], 10, 64)
+			energy, _ := strconv.Atoi(msg[6])
+			status.ai = ai.AIInit(gamemap.NewMap(59, 34), c)
+			status.ai.Energy = energy
+			initialised = true
+		}
 	}
 
 	sendName(c, name)
 	sendColour(c, 255, 0, 0)
 
-	sendRequestGameStatus(c)
-
-	for {
+	for status.state == game {
 		is_msgs_empty := false
 
 		for !is_msgs_empty {
@@ -113,11 +141,16 @@ func botLoop(msgs chan []string, c net.Conn) {
 						}
 					}
 				case "s":
-					status.x, _ = strconv.ParseInt(msg[1], 10, 64)
-					status.y, _ = strconv.ParseInt(msg[2], 10, 64)
-					status.dir = getDirVal(msg[3])
+					var c gamemap.Coord
+					c.X, _ = strconv.Atoi(msg[1])
+					c.Y, _ = strconv.Atoi(msg[2])
+					c.D = getDirVal(msg[3])
+					status.ai.Gamemap.VisitCell(c, 0)
 					status.score, _ = strconv.ParseInt(msg[5], 10, 64)
-					status.energy, _ = strconv.Atoi(msg[6])
+					energy, _ := strconv.Atoi(msg[6])
+					status.ai = ai.AIInit(gamemap.NewMap(59, 34), c)
+					status.ai.Energy = energy
+					initialised = true
 				}
 				fmt.Println(strings.Join(msg, " "))
 			default:
@@ -125,8 +158,8 @@ func botLoop(msgs chan []string, c net.Conn) {
 			}
 		}
 
-		if status.state == game && status.energy > 0 {
-			doDecision(c)
+		if status.state == game && status.ai.Energy > 0 {
+			doDecision(c, &status.ai)
 		} else {
 			if msgSeconds >= 5*time.Second {
 				sendRequestGameStatus(c)
@@ -135,13 +168,16 @@ func botLoop(msgs chan []string, c net.Conn) {
 			}
 		}
 
+		sendRequestUserStatus(c)
+		sendRequestObservation(c)
+
 		time.Sleep(time_delta)
 		msgSeconds += time_delta
 	}
 }
 
-func doDecision(c net.Conn) {
-	decision := ai.GetDecision()
+func doDecision(c net.Conn, drone_ai *ai.AI) {
+	decision := drone_ai.GetDecision()
 	switch decision {
 	case ai.TURN_RIGHT:
 		sendTurnRight(c)
