@@ -27,6 +27,21 @@ const (
 	gameover = iota
 	ready    = iota
 	game     = iota
+	dead     = iota
+)
+
+const (
+	Xi          = iota
+	Yi          = iota
+	Di          = iota
+	SCOREi      = iota
+	ENERGYi     = iota
+	GAMESTATUSi = iota
+	TIMEi       = iota
+	HITi        = iota
+	DAMAGEi     = iota
+	OBSi        = iota
+	ENEMYi      = iota
 )
 
 type GameState struct {
@@ -35,8 +50,13 @@ type GameState struct {
 	ai    ai.AI
 }
 
+type message struct {
+	t, info int
+	infou   uint
+}
+
 func main() {
-	messages := make(chan []string, 20)
+	messages := make(chan message, 100)
 
 	c, err := ClientNew(host, port, []CmdHandler{
 		func(cmd []string) {
@@ -56,102 +76,25 @@ func main() {
 	c.Disconnect()
 }
 
-func handler(msgs chan []string, cmd []string) {
-	switch strings.ToLower(cmd[0]) {
-	case "notification":
-		fmt.Printf("[SERVER] %s\n", strings.Join(cmd[1:], " "))
-
-	case "hello":
-		fmt.Printf("[SERVER] %s has joined the game!\n", cmd[1])
-
-	case "goodbye":
-		fmt.Printf("[SERVER] %s has left the game!\n", cmd[1])
-
-	case "changename":
-		fmt.Printf("[SERVER] %s is now known as %s\n", cmd[1], cmd[2])
-
-	case "u":
-		printScoreboard(cmd[1:])
-
-	default:
-		msgs <- cmd
-	}
-}
-
-func botLoop(msgs chan []string, c *Client) {
+func botLoop(msgs chan message, c *Client) {
 	var msgSeconds time.Duration = 0
-	initialised := false
 
 	status := GameState{
 		state: ready,
 		score: 0,
 	}
 
-	for status.state != game {
-		msg := <-msgs
-		c.SendRequestGameStatus()
-		switch strings.ToLower(msg[0]) {
-		case "g":
-			state := getStateVal(msg[1])
-			if state != status.state {
-				fmt.Println("New Game State: " + msg[1])
-				status.state = state
-				if state == game {
-					c.SendRequestUserStatus()
-				}
-			}
-		}
-	}
-
-	for !initialised {
-		msg := <-msgs
-		switch strings.ToLower(msg[0]) {
-		case "s":
-			var c gamemap.Coord
-			c.X, _ = strconv.Atoi(msg[1])
-			c.Y, _ = strconv.Atoi(msg[2])
-			c.D = getDirVal(msg[3])
-			status.score, _ = strconv.ParseInt(msg[5], 10, 64)
-			energy, _ := strconv.Atoi(msg[6])
-			status.ai = ai.AIInit(gamemap.NewMap(59, 34), c)
-			status.ai.Energy = energy
-			initialised = true
-		}
-	}
-
 	//sendName(c, name)
 	c.SendColour(255, 0, 0)
 
-	for status.state == game {
+	for c.IsConnected {
 		is_msgs_empty := false
 
 		for !is_msgs_empty {
 			select {
 			case msg := <-msgs:
-				switch strings.ToLower(msg[0]) {
-				case "g":
-					state := getStateVal(msg[1])
-					if state != status.state {
-						fmt.Println("New Game State: " + msg[1])
-						status.state = state
-						if state == game {
-							c.SendRequestUserStatus()
-							c.SendRequestObservation()
-						}
-					}
-				case "s":
-					var c gamemap.Coord
-					c.X, _ = strconv.Atoi(msg[1])
-					c.Y, _ = strconv.Atoi(msg[2])
-					c.D = getDirVal(msg[3])
-					status.ai.Gamemap.VisitCell(c, 0)
-					status.score, _ = strconv.ParseInt(msg[5], 10, 64)
-					energy, _ := strconv.Atoi(msg[6])
-					status.ai = ai.AIInit(gamemap.NewMap(59, 34), c)
-					status.ai.Energy = energy
-					initialised = true
+				switch msg.t {
 				}
-				fmt.Println(strings.Join(msg, " "))
 			default:
 				is_msgs_empty = true
 			}
@@ -172,6 +115,158 @@ func botLoop(msgs chan []string, c *Client) {
 
 		time.Sleep(time_delta)
 		msgSeconds += time_delta
+	}
+}
+
+func handler(msgs chan message, cmd []string) {
+	switch strings.ToLower(cmd[0]) {
+	case "notification":
+		fmt.Printf("[SERVER] %s\n", strings.Join(cmd[1:], " "))
+
+	case "hello":
+		fmt.Printf("[SERVER] %s has joined the game!\n", cmd[1])
+
+	case "goodbye":
+		fmt.Printf("[SERVER] %s has left the game!\n", cmd[1])
+
+	case "changename":
+		fmt.Printf("[SERVER] %s is now known as %s\n", cmd[1], cmd[2])
+
+	case "player":
+		if len(cmd) == 7 {
+			node, err := strconv.Atoi(cmd[1])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+				return
+			}
+
+			name := cmd[2]
+
+			x, err := strconv.Atoi(cmd[3])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+				return
+			}
+
+			y, err := strconv.Atoi(cmd[4])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+				return
+			}
+
+			dir := getDirVal(cmd[5])
+			if dir == -1 {
+				fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid state %s\n", cmd[5])
+				return
+			}
+
+			state := getStateVal(cmd[6])
+			if dir == -1 {
+				fmt.Fprintf(os.Stderr, "[ERROR] getStateVal(): invalid state %s\n", cmd[6])
+				return
+			}
+
+			fmt.Printf("[PLAYER] %s (%d) %d %d,%d,%d\n", name, node, state, x, y, dir)
+		}
+
+	case "u":
+		printScoreboard(cmd[1:])
+
+	case "g":
+		if st := getStateVal(cmd[1]); st != -1 {
+			msgs <- message{t: GAMESTATUSi, info: st}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid state %s\n", cmd[4])
+		}
+
+		if time, err := strconv.Atoi(cmd[2]); err == nil {
+			msgs <- message{t: TIMEi, info: time}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+		}
+
+	case "s":
+		if x, err := strconv.Atoi(cmd[1]); err == nil {
+			msgs <- message{t: Xi, info: x}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+		}
+
+		if y, err := strconv.Atoi(cmd[2]); err == nil {
+			msgs <- message{t: Yi, info: y}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+		}
+
+		if d := getDirVal(cmd[3]); d != -1 {
+			msgs <- message{t: Di, info: d}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid dir %s\n", cmd[3])
+		}
+
+		if st := getStateVal(cmd[4]); st != -1 {
+			msgs <- message{t: GAMESTATUSi, info: st}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid state %s\n", cmd[4])
+		}
+
+		if s, err := strconv.Atoi(cmd[5]); err == nil {
+			msgs <- message{t: SCOREi, info: s}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+		}
+
+		if e, err := strconv.Atoi(cmd[6]); err == nil {
+			msgs <- message{t: ENERGYi, info: e}
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+		}
+
+	case "h":
+		msgs <- message{t: HITi, info: 1}
+
+	case "d":
+		msgs <- message{t: DAMAGEi, info: 1}
+
+	case "o":
+		obs := strings.Split(cmd[1], ",")
+		msg := message{t: OBSi, infou: 0}
+		for _, o := range obs {
+			switch o {
+			case "breeze":
+				msg.infou |= gamemap.BREEZE
+
+			case "flash":
+				msg.infou |= gamemap.FLASH
+
+			case "steps":
+				msg.infou |= gamemap.STEPS
+
+			case "redLight":
+				msg.infou |= gamemap.REDLIGHT
+
+			case "blueLight":
+				msg.infou |= gamemap.BLUELIGHT
+
+			case "blocked":
+				msg.infou |= gamemap.BLOCKED
+
+			default:
+				enemy := strings.Split(o, "#")
+				if len(enemy) > 1 {
+					if dist, err := strconv.Atoi(enemy[1]); err == nil {
+						msgs <- message{t: ENEMYi, info: dist}
+					} else {
+						fmt.Fprintf(os.Stderr, "Atoi(): %s\n", err)
+					}
+				}
+			}
+		}
+
+		if msg.infou != 0 {
+			msgs <- msg
+		}
+
 	}
 }
 
@@ -232,6 +327,8 @@ func getStateVal(state string) int {
 		return ready
 	case "game":
 		return game
+	case "dead":
+		return dead
 	}
 
 	return -1

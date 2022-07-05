@@ -24,4 +24,6 @@ const (
 	REDLIGHT  = 1 << iota
 	BLUELIGHT = 1 << iota
 	WEAKLIGHT = 1 << iota
+	STEPS     = 1 << iota
+	BLOCKED   = 1 << iota
 )
