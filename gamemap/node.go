@@ -1,7 +1,7 @@
 package gamemap
 
 func (m *Map) GetAdjacentPositions(pos Coord) (adjs []Coord) {
-	adjs = make([]Coord, 4)
+	adjs = []Coord{}
 
 	switch pos.D {
 	case NORTH:
@@ -43,4 +43,34 @@ func (m *Map) GetAdjacentPositions(pos Coord) (adjs []Coord) {
 	}
 
 	return adjs
+}
+
+func (m *Map) GetForwardPosition(pos Coord) (f Coord) {
+	switch pos.D {
+	case NORTH:
+		f = Coord{pos.X, pos.Y - 1, pos.D}
+	case EAST:
+		f = Coord{pos.X + 1, pos.Y, pos.D}
+	case SOUTH:
+		f = Coord{pos.X, pos.Y + 1, pos.D}
+	case WEST:
+		f = Coord{pos.X - 1, pos.Y, pos.D}
+	}
+
+	return f
+}
+
+func (m *Map) GetBackwardPosition(pos Coord) (f Coord) {
+	switch pos.D {
+	case SOUTH:
+		f = Coord{pos.X, pos.Y - 1, pos.D}
+	case WEST:
+		f = Coord{pos.X + 1, pos.Y, pos.D}
+	case NORTH:
+		f = Coord{pos.X, pos.Y + 1, pos.D}
+	case EAST:
+		f = Coord{pos.X - 1, pos.Y, pos.D}
+	}
+
+	return f
 }

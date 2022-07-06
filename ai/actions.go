@@ -1,11 +1,11 @@
 package ai
 
 const (
-	TURN_RIGHT   = iota
-	TURN_LEFT    = iota
-	FORWARD      = iota
-	BACKWARD     = iota
-	ATTACK       = iota
-	TAKE_GOLD    = iota
-	TAKE_POWERUP = iota
+	TURN_RIGHT = iota + 1
+	TURN_LEFT
+	FORWARD
+	BACKWARD
+	ATTACK
+	TAKE_GOLD
+	TAKE_POWERUP
 )

@@ -1,5 +1,7 @@
 package gamemap
 
+import "fmt"
+
 const danger_decay = 1
 const danger_base = 50
 
@@ -29,9 +31,9 @@ func NewMap(h, w int) *Map {
 	m.Height = h
 	m.Width = w
 
-	m.Cells = make([][]Cell, w)
+	m.Cells = make([][]Cell, w+1)
 	for i := range m.Cells {
-		m.Cells[i] = make([]Cell, h)
+		m.Cells[i] = make([]Cell, h+1)
 	}
 
 	m.GoldCells = make(map[Coord]uint64)
@@ -62,7 +64,7 @@ func (m *Map) Tick() {
 }
 
 func (m *Map) GetAdjacentCells(c Coord) (adjs []Coord) {
-	adjs = make([]Coord, 4)
+	adjs = []Coord{}
 
 	if c.X > 0 {
 		adjs = append(adjs, Coord{c.X - 1, c.Y, 0})
@@ -95,7 +97,7 @@ func (m *Map) VisitCell(c Coord, senses uint) {
 			if m.isPossibleHole(ac) || m.isPossibleTeleport(ac) {
 				*status = DANGEROUS
 			} else {
-				*status = UNKNOWN
+				*status = SAFE
 			}
 		}
 	}
@@ -109,8 +111,67 @@ func (m *Map) VisitCell(c Coord, senses uint) {
 	}
 }
 
+func (m *Map) MarkWall(c Coord, forward bool) {
+	if forward {
+		forward := m.GetForwardPosition(c)
+		if forward.X < 0 || forward.Y < 0 {
+			return
+		}
+		m.Cells[forward.X][forward.Y].Status = WALL
+	} else {
+		backward := m.GetBackwardPosition(c)
+		if backward.X < 0 || backward.Y < 0 {
+			return
+		}
+		m.Cells[backward.X][backward.Y].Status = WALL
+	}
+}
+
 func (m *Map) AddDanger(c Coord) {
 	m.Cells[c.X][c.Y].DangerLevel = danger_base
+}
+
+func (m *Map) Print(pos Coord) {
+	fmt.Println("\nMAP:")
+	for y := 0; y < m.Height; y++ {
+		for x := 0; x < m.Width; x++ {
+			if x == pos.X && y == pos.Y {
+				switch pos.D {
+				case NORTH:
+					fmt.Print("^")
+				case SOUTH:
+					fmt.Print("v")
+				case EAST:
+					fmt.Print(">")
+				case WEST:
+					fmt.Print("<")
+				}
+			} else {
+				switch m.Cells[x][y].Status {
+				case WALL:
+					fmt.Print("X")
+				case DANGEROUS:
+					fmt.Print("!")
+				case UNKNOWN:
+					fmt.Print("?")
+				case SAFE:
+					fmt.Print(",")
+				case TELEPORT:
+					fmt.Print("T")
+				case HOLE:
+					fmt.Print("O")
+				case EMPTY:
+					fmt.Print(".")
+				case GOLD:
+					fmt.Print("G")
+				case POWERUP:
+					fmt.Print("P")
+				}
+			}
+		}
+		fmt.Print("\n")
+	}
+	fmt.Print("---------------------------------------------\n\n")
 }
 
 func (m *Map) isPossibleHole(c Coord) bool {

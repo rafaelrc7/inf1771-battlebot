@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	EXPLORING     = iota
-	FETCHING_GOLD = iota
-	FETCHING_PU   = iota
-	ATTACKING     = iota
-	RUNNING       = iota
+	NOTHING = iota
+	EXPLORING
+	FETCHING_GOLD
+	FETCHING_PU
+	ATTACKING
+	RUNNING
 )
 
 type AI struct {
@@ -22,6 +23,7 @@ type AI struct {
 	Energy       int
 	TimesFired   int
 	TimeRunnning int
+	Observations uint
 	Gamemap      *gamemap.Map
 }
 
@@ -35,7 +37,10 @@ func AIInit(m *gamemap.Map, c gamemap.Coord) AI {
 	}
 }
 
-func (ai *AI) GetDecision() int {
+func (ai *AI) GetDecision(mapChanged bool) int {
+	if mapChanged {
+		ai.ActionStack = []int{}
+	}
 	switch ai.State {
 	case EXPLORING:
 		if len(ai.ActionStack) == 0 {
@@ -43,6 +48,10 @@ func (ai *AI) GetDecision() int {
 			ai.ActionStack, _ = Astar(ai.Coord, dest, ai.Gamemap)
 			fmt.Printf("Going to: (%d, %d)\n", dest.X, dest.Y)
 		}
+		if len(ai.ActionStack) == 0 {
+			return NOTHING
+		}
+
 		l := len(ai.ActionStack)
 		action := ai.ActionStack[l-1]
 		ai.ActionStack = ai.ActionStack[:l-1]
@@ -56,10 +65,14 @@ func FindUnexplored(m *gamemap.Map, c gamemap.Coord) gamemap.Coord {
 	adjs := m.GetAdjacentCells(c)
 
 	for _, adj := range adjs {
-		if !m.Cells[adj.X][adj.Y].Visited {
+		if !m.Cells[adj.X][adj.Y].Visited &&
+			m.Cells[adj.X][adj.Y].Status != gamemap.WALL &&
+			m.Cells[adj.X][adj.Y].Status != gamemap.DANGEROUS &&
+			m.Cells[adj.X][adj.Y].Status != gamemap.HOLE &&
+			m.Cells[adj.X][adj.Y].Status != gamemap.TELEPORT {
 			return adj
 		}
 	}
 
-	return c
+	return gamemap.Coord{}
 }

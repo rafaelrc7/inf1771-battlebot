@@ -37,13 +37,21 @@ func Astar(orig, dest gamemap.Coord, m *gamemap.Map) (actions []int, numActions 
 	nodes[curr.X][curr.Y][curr.D].inheap = true
 
 	for curr.X != dest.X || curr.Y != dest.Y {
+		if queue.Len() == 0 { /* no path */
+			return []int{}, 0
+		}
 		curr = heap.Pop(queue).(gamemap.Coord)
 		nodes[curr.X][curr.Y][curr.D].visited = true
 		nodes[curr.X][curr.Y][curr.D].inheap = false
 
 		if curr.X != dest.X || curr.Y != dest.Y {
 			for _, adj := range m.GetAdjacentPositions(curr) {
-				peek(adj, curr, dest, queue, &nodes, m)
+				if m.Cells[adj.X][adj.Y].Status != gamemap.WALL &&
+					m.Cells[adj.X][adj.Y].Status != gamemap.DANGEROUS &&
+					m.Cells[adj.X][adj.Y].Status != gamemap.HOLE &&
+					m.Cells[adj.X][adj.Y].Status != gamemap.TELEPORT {
+					peek(adj, curr, dest, queue, &nodes, m)
+				}
 			}
 		}
 	}
@@ -54,16 +62,32 @@ func Astar(orig, dest gamemap.Coord, m *gamemap.Map) (actions []int, numActions 
 func peek(adj, curr, target gamemap.Coord, queue *CoordHeap, nodes *[][][]node, m *gamemap.Map) {
 	node := &(*nodes)[adj.X][adj.Y][adj.D]
 	prev := &(*nodes)[curr.X][curr.Y][curr.D]
+
 	if node.visited {
 		return
 	} else if !node.inheap {
 		node.coord = adj
-		node.d = 1
+
+		switch m.Cells[adj.X][adj.Y].Status {
+		case gamemap.WALL:
+		case gamemap.DANGEROUS:
+		case gamemap.HOLE:
+		case gamemap.TELEPORT:
+			node.visited = true
+			return
+
+		default:
+			node.d = 1
+		}
+
+		if m.Cells[adj.X][adj.Y].DangerLevel > 0 {
+			node.d = 100
+		}
+
 		node.h = manhattan(target, node.coord)
 		node.prev = prev
 		node.g = node.d + node.prev.g
 		node.f = node.h + node.g
-
 		queue.PushCoord(adj, node.f)
 	} else if !node.visited {
 		g := node.d + prev.g
@@ -112,10 +136,10 @@ func path2actions(n *node) (actions []int, numActions int) {
 				}
 			}
 		} else if curr.X < prev.X { /* E to W */
-			if prev.D == gamemap.WEST {
-				actions = append(actions, FORWARD)
-			} else {
+			if prev.D == gamemap.EAST {
 				actions = append(actions, BACKWARD)
+			} else {
+				actions = append(actions, FORWARD)
 			}
 		} else if curr.X > prev.X { /* W to E */
 			if prev.D == gamemap.EAST {
@@ -124,16 +148,16 @@ func path2actions(n *node) (actions []int, numActions int) {
 				actions = append(actions, BACKWARD)
 			}
 		} else if curr.Y < prev.Y { /* N to S */
-			if prev.D == gamemap.SOUTH {
+			if prev.D == gamemap.NORTH {
 				actions = append(actions, FORWARD)
 			} else {
 				actions = append(actions, BACKWARD)
 			}
 		} else if curr.Y > prev.Y { /* S to N */
 			if prev.D == gamemap.NORTH {
-				actions = append(actions, FORWARD)
-			} else {
 				actions = append(actions, BACKWARD)
+			} else {
+				actions = append(actions, FORWARD)
 			}
 		}
 

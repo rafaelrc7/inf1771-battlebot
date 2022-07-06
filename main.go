@@ -18,7 +18,7 @@ const host = "atari.icad.puc-rio.br"
 const port = "8888"
 
 const name = "xxxxxxx"
-const time_delta = 1 * time.Second
+const time_delta = 100 * time.Millisecond
 
 const width = 59
 const height = 34
@@ -45,9 +45,13 @@ const (
 )
 
 type GameState struct {
-	state int
-	score int64
-	ai    ai.AI
+	state      int
+	score      int
+	tick       int
+	lastAction int
+	ai         ai.AI
+	ingame     bool
+	lastCoord  gamemap.Coord
 }
 
 type message struct {
@@ -88,37 +92,113 @@ func botLoop(msgs chan message, c *Client) {
 	c.SendColour(255, 0, 0)
 
 	for c.IsConnected {
-		is_msgs_empty := false
 
-		for !is_msgs_empty {
-			select {
-			case msg := <-msgs:
-				switch msg.t {
+		if status.state == game {
+			if !status.ingame {
+				time.Sleep(time_delta)
+				status.tick = 0
+				status.ingame = true
+				c.SendRequestUserStatus()
+				c.SendRequestObservation()
+				status.ai.Gamemap = gamemap.NewMap(height, width)
+				time.Sleep(time_delta)
+				status.ai.State = ai.EXPLORING
+			}
+
+			start := time.Now()
+
+			status.tick++
+
+			for is_msgs_empty := false; !is_msgs_empty; {
+				select {
+				case msg := <-msgs:
+					switch msg.t {
+					case Xi:
+						status.ai.Coord.X = msg.info
+					case Yi:
+						status.ai.Coord.Y = msg.info
+					case Di:
+						status.ai.Coord.D = msg.info
+					case SCOREi:
+						status.score = msg.info
+					case ENERGYi:
+						status.ai.Energy = msg.info
+					case GAMESTATUSi:
+						if status.state != msg.info {
+							fmt.Printf("[SERVER]: New game state %d\n", msg.info)
+							status.state = msg.info
+						}
+					case OBSi:
+						status.ai.Observations = msg.infou
+					}
+				default:
+					is_msgs_empty = true
 				}
-			default:
-				is_msgs_empty = true
 			}
-		}
 
-		if status.state == game && status.ai.Energy > 0 {
-			doDecision(c, &status.ai)
+			status.ai.Gamemap.Tick()
+			status.ai.Gamemap.VisitCell(status.ai.Coord, status.ai.Observations)
+			status.ai.Gamemap.Print(status.ai.Coord)
+
+			if status.lastAction == ai.BACKWARD || status.lastAction == ai.FORWARD {
+				if status.ai.Coord == status.lastCoord {
+					status.ai.Gamemap.MarkWall(status.ai.Coord, status.lastAction == ai.FORWARD)
+				}
+			}
+
+			status.lastCoord = status.ai.Coord
+
+			if status.ai.Energy > 0 {
+				decision := status.ai.GetDecision(true)
+				doDecision(c, decision)
+				status.lastAction = decision
+
+			} else {
+				if msgSeconds >= 5*time.Second {
+					c.SendRequestGameStatus()
+					msgSeconds = 0
+				}
+			}
+
+			status.ai.Observations = 0
+			c.SendRequestUserStatus()
+			c.SendRequestObservation()
+
+			end := time.Now()
+			if diff := end.Sub(start); diff < time_delta {
+				fmt.Println(diff)
+				//fmt.Printf("Computation took: %v\nWill wait: %v\n", diff, (time_delta - diff))
+				time.Sleep(time_delta - diff)
+			}
 		} else {
-			if msgSeconds >= 5*time.Second {
-				c.SendRequestGameStatus()
-				c.SendRequestScoreboard()
-				msgSeconds = 0
+			status.ingame = false
+			c.SendRequestGameStatus()
+			c.SendRequestScoreboard()
+			for is_msgs_empty := false; !is_msgs_empty; {
+				select {
+				case msg := <-msgs:
+					switch msg.t {
+					case GAMESTATUSi:
+						if msg.info != status.state {
+							status.state = msg.info
+							fmt.Printf("[SERVER]: New game status %d\n", status.state)
+						}
+					}
+				default:
+					is_msgs_empty = true
+				}
+			}
+			if status.state != game {
+				time.Sleep(1 * time.Second)
 			}
 		}
 
-		c.SendRequestUserStatus()
-		c.SendRequestObservation()
-
-		time.Sleep(time_delta)
 		msgSeconds += time_delta
 	}
 }
 
 func handler(msgs chan message, cmd []string) {
+	fmt.Println(cmd)
 	switch strings.ToLower(cmd[0]) {
 	case "notification":
 		fmt.Printf("[SERVER] %s\n", strings.Join(cmd[1:], " "))
@@ -133,6 +213,7 @@ func handler(msgs chan message, cmd []string) {
 		fmt.Printf("[SERVER] %s is now known as %s\n", cmd[1], cmd[2])
 
 	case "player":
+		fmt.Println(cmd)
 		if len(cmd) == 7 {
 			node, err := strconv.Atoi(cmd[1])
 			if err != nil {
@@ -267,36 +348,41 @@ func handler(msgs chan message, cmd []string) {
 			msgs <- msg
 		}
 
+	default:
+		fmt.Println(cmd)
 	}
 }
 
-func doDecision(c *Client, drone_ai *ai.AI) {
-	decision := drone_ai.GetDecision()
+func doDecision(c *Client, decision int) {
 	switch decision {
 	case ai.TURN_RIGHT:
 		c.SendTurnRight()
+		fmt.Println("RIGHT")
 
 	case ai.TURN_LEFT:
 		c.SendTurnLeft()
+		fmt.Println("LEFT")
 
 	case ai.FORWARD:
 		c.SendForward()
+		fmt.Println("FORWARD")
 
 	case ai.BACKWARD:
 		c.SendBackward()
+		fmt.Println("BACKWARD")
 
 	case ai.ATTACK:
 		c.SendShoot()
+		fmt.Println("SHOOT")
 
 	case ai.TAKE_GOLD:
 		c.SendGetItem()
+		fmt.Println("TAKE")
 
 	case ai.TAKE_POWERUP:
 		c.SendGetItem()
+		fmt.Println("TAKE")
 	}
-
-	c.SendRequestUserStatus()
-	c.SendRequestObservation()
 }
 
 func printScoreboard(scoreboard []string) {
