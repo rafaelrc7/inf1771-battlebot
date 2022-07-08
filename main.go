@@ -136,20 +136,20 @@ func botLoop(msgs chan message, c *Client) {
 				}
 			}
 
-			status.ai.Gamemap.Tick()
-			status.ai.Gamemap.VisitCell(status.ai.Coord, status.ai.Observations)
+			hasChanged := status.ai.Gamemap.Tick()
+			hasChanged = hasChanged || status.ai.Gamemap.VisitCell(status.ai.Coord, status.ai.Observations)
 			status.ai.Gamemap.Print(status.ai.Coord)
 
 			if status.lastAction == ai.BACKWARD || status.lastAction == ai.FORWARD {
 				if status.ai.Coord == status.lastCoord {
-					status.ai.Gamemap.MarkWall(status.ai.Coord, status.lastAction == ai.FORWARD)
+					hasChanged = hasChanged || status.ai.Gamemap.MarkWall(status.ai.Coord, status.lastAction == ai.FORWARD)
 				}
 			}
 
 			status.lastCoord = status.ai.Coord
 
 			if status.ai.Energy > 0 {
-				decision := status.ai.GetDecision(true)
+				decision := status.ai.GetDecision(hasChanged)
 				doDecision(c, decision)
 				status.lastAction = decision
 

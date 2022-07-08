@@ -43,12 +43,14 @@ func NewMap(h, w int) *Map {
 	return &m
 }
 
-func (m *Map) Tick() {
+func (m *Map) Tick() bool {
+	hasChanged := false
 	for key, val := range m.DangerCells {
 		val.DangerLevel--
 		if val.DangerLevel <= 0 {
 			val.DangerLevel = 0
 			delete(m.DangerCells, key)
+			return true
 		}
 	}
 	for key, val := range m.GoldCells {
@@ -61,6 +63,7 @@ func (m *Map) Tick() {
 			m.PowerupCells[key]--
 		}
 	}
+	return hasChanged
 }
 
 func (m *Map) GetAdjacentCells(c Coord) (adjs []Coord) {
@@ -82,9 +85,10 @@ func (m *Map) GetAdjacentCells(c Coord) (adjs []Coord) {
 	return adjs
 }
 
-func (m *Map) VisitCell(c Coord, senses uint) {
+func (m *Map) VisitCell(c Coord, senses uint) bool {
+	hasChanged := false
 	if m.Cells[c.X][c.Y].Visited {
-		return
+		return hasChanged
 	}
 
 	adjs := m.GetAdjacentCells(c)
@@ -95,36 +99,62 @@ func (m *Map) VisitCell(c Coord, senses uint) {
 		status := &m.Cells[ac.X][ac.Y].Status
 		if *status == UNKNOWN || *status == DANGEROUS {
 			if m.isPossibleHole(ac) || m.isPossibleTeleport(ac) {
-				*status = DANGEROUS
+				if *status != DANGEROUS {
+					*status = DANGEROUS
+					hasChanged = true
+				}
 			} else {
-				*status = SAFE
+				if *status != SAFE {
+					*status = SAFE
+					hasChanged = true
+				}
 			}
 		}
 	}
 
 	if senses&REDLIGHT != 0 {
-		m.Cells[c.X][c.Y].Status = POWERUP
+		if m.Cells[c.X][c.Y].Status != POWERUP {
+			m.Cells[c.X][c.Y].Status = POWERUP
+			hasChanged = true
+		}
 	} else if senses&BLUELIGHT != 0 {
-		m.Cells[c.X][c.Y].Status = GOLD
+		if m.Cells[c.X][c.Y].Status != GOLD {
+			m.Cells[c.X][c.Y].Status = GOLD
+			hasChanged = true
+		}
 	} else {
-		m.Cells[c.X][c.Y].Status = EMPTY
+		if m.Cells[c.X][c.Y].Status != EMPTY {
+			m.Cells[c.X][c.Y].Status = EMPTY
+			hasChanged = true
+		}
 	}
+
+	return hasChanged
 }
 
-func (m *Map) MarkWall(c Coord, forward bool) {
+func (m *Map) MarkWall(c Coord, forward bool) bool {
+	hasChanged := false
 	if forward {
 		forward := m.GetForwardPosition(c)
 		if forward.X < 0 || forward.Y < 0 {
-			return
+			return hasChanged
 		}
-		m.Cells[forward.X][forward.Y].Status = WALL
+		if m.Cells[forward.X][forward.Y].Status != WALL {
+			m.Cells[forward.X][forward.Y].Status = WALL
+			hasChanged = true
+		}
 	} else {
 		backward := m.GetBackwardPosition(c)
 		if backward.X < 0 || backward.Y < 0 {
-			return
+			return hasChanged
 		}
-		m.Cells[backward.X][backward.Y].Status = WALL
+		if m.Cells[backward.X][backward.Y].Status != WALL {
+			m.Cells[backward.X][backward.Y].Status = WALL
+			hasChanged = true
+		}
 	}
+
+	return hasChanged
 }
 
 func (m *Map) AddDanger(c Coord) {
