@@ -2,6 +2,7 @@ package ai
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/rafaelrc7/inf1771-battlebot/gamemap"
 )
@@ -79,5 +80,5 @@ func FindUnexplored(m *gamemap.Map, c gamemap.Coord) gamemap.Coord {
 		}
 	}
 
-	return gamemap.Coord{}
+	return gamemap.Coord{X: rand.Intn(m.Width + 1), Y: rand.Intn(m.Height + 1)}
 }
