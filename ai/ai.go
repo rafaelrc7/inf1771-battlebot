@@ -2,13 +2,12 @@ package ai
 
 import (
 	"fmt"
-	"math/rand"
 
 	"github.com/rafaelrc7/inf1771-battlebot/gamemap"
 )
 
 const (
-	NOTHING = iota
+	STOP = iota
 	EXPLORING
 	FETCHING_GOLD
 	FETCHING_PU
@@ -41,8 +40,14 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 	if mapChanged {
 		ai.ActionStack = []int{}
 	}
+
 	switch ai.State {
+	case STOP:
+		return NOTHING
 	case EXPLORING:
+		if ai.Observations&(gamemap.BLUELIGHT|gamemap.REDLIGHT) != 0 {
+			return TAKE
+		}
 		if len(ai.ActionStack) == 0 {
 			dest := FindUnexplored(ai.Gamemap, ai.Coord)
 			ai.ActionStack, _ = Astar(ai.Coord, dest, ai.Gamemap)
@@ -57,7 +62,7 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		ai.ActionStack = ai.ActionStack[:l-1]
 		return action
 	default:
-		return rand.Intn(7)
+		return NOTHING
 	}
 }
 

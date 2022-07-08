@@ -375,13 +375,10 @@ func doDecision(c *Client, decision int) {
 		c.SendShoot()
 		fmt.Println("SHOOT")
 
-	case ai.TAKE_GOLD:
+	case ai.TAKE:
 		c.SendGetItem()
 		fmt.Println("TAKE")
 
-	case ai.TAKE_POWERUP:
-		c.SendGetItem()
-		fmt.Println("TAKE")
 	}
 }
 

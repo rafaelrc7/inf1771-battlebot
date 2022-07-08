@@ -1,11 +1,11 @@
 package ai
 
 const (
-	TURN_RIGHT = iota + 1
+	NOTHING = iota
+	TURN_RIGHT
 	TURN_LEFT
 	FORWARD
 	BACKWARD
 	ATTACK
-	TAKE_GOLD
-	TAKE_POWERUP
+	TAKE
 )
