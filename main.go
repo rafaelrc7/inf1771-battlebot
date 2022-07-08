@@ -108,6 +108,7 @@ func botLoop(msgs chan message, c *Client) {
 			start := time.Now()
 
 			status.tick++
+			status.ai.EnemyDetected = false
 
 			for is_msgs_empty := false; !is_msgs_empty; {
 				select {
@@ -130,6 +131,8 @@ func botLoop(msgs chan message, c *Client) {
 						}
 					case OBSi:
 						status.ai.Observations = msg.infou
+					case ENEMYi:
+						status.ai.EnemyDetected = true
 					}
 				default:
 					is_msgs_empty = true

@@ -17,14 +17,14 @@ const (
 )
 
 type AI struct {
-	State        int
-	ActionStack  []int
-	Coord        gamemap.Coord
-	Energy       int
-	TimesFired   int
-	TimeRunnning int
-	Observations uint
-	Gamemap      *gamemap.Map
+	State         int
+	ActionStack   []int
+	Coord         gamemap.Coord
+	Energy        int
+	TimeRunnning  int
+	Observations  uint
+	EnemyDetected bool
+	Gamemap       *gamemap.Map
 }
 
 func AIInit(m *gamemap.Map, c gamemap.Coord) AI {
@@ -42,9 +42,17 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		ai.ActionStack = []int{}
 	}
 
+	if ai.State == ATTACKING && !ai.EnemyDetected {
+		ai.State = EXPLORING
+	} else if ai.State != ATTACKING && ai.EnemyDetected {
+		ai.State = ATTACKING
+	}
+
 	switch ai.State {
 	case STOP:
 		return NOTHING
+	case ATTACKING:
+		return ATTACK
 	case EXPLORING:
 		if ai.Observations&(gamemap.BLUELIGHT|gamemap.REDLIGHT) != 0 {
 			return TAKE
