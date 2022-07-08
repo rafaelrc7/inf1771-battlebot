@@ -54,7 +54,8 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 	case ATTACKING:
 		return ATTACK
 	case EXPLORING:
-		if ai.Observations&(gamemap.BLUELIGHT|gamemap.REDLIGHT) != 0 {
+		if ai.Observations&(gamemap.BLUELIGHT) != 0 {
+			*ai.Gamemap.GoldCells[gamemap.CellC{X: ai.Coord.X, Y: ai.Coord.Y}] = 1500
 			return TAKE
 		}
 		if len(ai.ActionStack) == 0 {
@@ -85,6 +86,14 @@ func FindUnexplored(m *gamemap.Map, c gamemap.Coord) gamemap.Coord {
 			m.Cells[adj.X][adj.Y].Status != gamemap.HOLE &&
 			m.Cells[adj.X][adj.Y].Status != gamemap.TELEPORT {
 			return adj
+		}
+	}
+
+	for key, val := range m.GoldCells {
+		if val != nil {
+			if *val == 0 {
+				return gamemap.Coord{X: key.X, Y: key.Y}
+			}
 		}
 	}
 

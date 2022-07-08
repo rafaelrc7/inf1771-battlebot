@@ -16,13 +16,22 @@ type Coord struct {
 	X, Y, D int
 }
 
+type CellC struct {
+	X, Y int
+}
+
+type Collectable struct {
+	IsCollectable bool
+	TicksToSpawn  int
+}
+
 type Map struct {
 	Cells         [][]Cell
 	Height, Width int
 
-	GoldCells    map[Coord]uint64
-	PowerupCells map[Coord]uint64
-	DangerCells  map[Coord]*Cell
+	GoldCells    map[CellC]*int
+	PowerupCells map[CellC]*int
+	DangerCells  map[CellC]*Cell
 }
 
 func NewMap(h, w int) *Map {
@@ -36,9 +45,9 @@ func NewMap(h, w int) *Map {
 		m.Cells[i] = make([]Cell, h+1)
 	}
 
-	m.GoldCells = make(map[Coord]uint64)
-	m.PowerupCells = make(map[Coord]uint64)
-	m.DangerCells = make(map[Coord]*Cell)
+	m.GoldCells = make(map[CellC]*int)
+	m.PowerupCells = make(map[CellC]*int)
+	m.DangerCells = make(map[CellC]*Cell)
 
 	return &m
 }
@@ -54,13 +63,13 @@ func (m *Map) Tick() bool {
 		}
 	}
 	for key, val := range m.GoldCells {
-		if val > 0 {
-			m.GoldCells[key]--
+		if val != nil && *val > 0 {
+			*m.GoldCells[key]--
 		}
 	}
 	for key, val := range m.PowerupCells {
-		if val > 0 {
-			m.PowerupCells[key]--
+		if val != nil && *val > 0 {
+			*m.PowerupCells[key]--
 		}
 	}
 	return hasChanged
@@ -115,11 +124,13 @@ func (m *Map) VisitCell(c Coord, senses uint) bool {
 	if senses&REDLIGHT != 0 {
 		if m.Cells[c.X][c.Y].Status != POWERUP {
 			m.Cells[c.X][c.Y].Status = POWERUP
+			m.PowerupCells[CellC{X: c.X, Y: c.Y}] = new(int)
 			hasChanged = true
 		}
 	} else if senses&BLUELIGHT != 0 {
 		if m.Cells[c.X][c.Y].Status != GOLD {
 			m.Cells[c.X][c.Y].Status = GOLD
+			m.GoldCells[CellC{X: c.X, Y: c.Y}] = new(int)
 			hasChanged = true
 		}
 	} else {
