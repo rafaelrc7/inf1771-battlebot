@@ -152,6 +152,7 @@ func botLoop(msgs chan message, c *Client) {
 			status.lastCoord = status.ai.Coord
 
 			if status.ai.Energy > 0 {
+				status.ai.Think(hasChanged)
 				decision := status.ai.GetDecision(hasChanged)
 				doDecision(c, decision)
 				status.lastAction = decision
@@ -170,6 +171,7 @@ func botLoop(msgs chan message, c *Client) {
 			end := time.Now()
 			if diff := end.Sub(start); diff < time_delta {
 				fmt.Println(diff)
+				fmt.Printf("STATE: %d\n", status.ai.State)
 				fmt.Printf("Computation took: %v\nWill wait: %v\n", diff, (time_delta - diff))
 				time.Sleep(time_delta - diff)
 			}

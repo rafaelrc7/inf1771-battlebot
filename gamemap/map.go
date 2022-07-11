@@ -170,6 +170,10 @@ func (m *Map) MarkWall(c Coord, forward bool) bool {
 
 func (m *Map) AddDanger(c Coord) {
 	m.Cells[c.X][c.Y].DangerLevel = danger_base
+	adjs := m.GetAdjacentCells(c)
+	for _, adj := range adjs {
+		m.Cells[adj.X][adj.Y].DangerLevel = danger_base
+	}
 }
 
 func (m *Map) Print(pos Coord) {
