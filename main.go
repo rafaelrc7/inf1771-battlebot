@@ -170,7 +170,7 @@ func botLoop(msgs chan message, c *Client) {
 			end := time.Now()
 			if diff := end.Sub(start); diff < time_delta {
 				fmt.Println(diff)
-				//fmt.Printf("Computation took: %v\nWill wait: %v\n", diff, (time_delta - diff))
+				fmt.Printf("Computation took: %v\nWill wait: %v\n", diff, (time_delta - diff))
 				time.Sleep(time_delta - diff)
 			}
 		} else {
@@ -382,6 +382,8 @@ func doDecision(c *Client, decision int) {
 		c.SendGetItem()
 		fmt.Println("TAKE")
 
+	case ai.NOTHING:
+		fmt.Println("NOTHING")
 	}
 }
 

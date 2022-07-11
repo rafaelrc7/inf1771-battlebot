@@ -26,5 +26,7 @@ const (
 	BLUELIGHT = 1 << iota
 	WEAKLIGHT = 1 << iota
 	STEPS     = 1 << iota
+	HIT       = 1 << iota
+	DAMAGE    = 1 << iota
 	BLOCKED   = 1 << iota
 )
