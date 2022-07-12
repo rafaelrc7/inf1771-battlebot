@@ -11,6 +11,8 @@ type node struct {
 	prev            *node
 	f, g, h, d      float64
 	coord           gamemap.Coord
+	index           int
+	priority        float64
 	inheap, visited bool
 }
 
@@ -19,9 +21,8 @@ func manhattan(orig, dest gamemap.Coord) (dist float64) {
 }
 
 func Astar(orig, dest gamemap.Coord, m *gamemap.Map) (actions []int, numActions int) {
-	actions = []int{}
-	curr := gamemap.Coord{X: orig.X, Y: orig.Y, D: orig.D}
-	queue := CoordHeapNew()
+	var nh nodeHeap
+	heap.Init(&nh)
 
 	nodes := make([][][]node, m.Width)
 	for i := range nodes {
@@ -31,73 +32,68 @@ func Astar(orig, dest gamemap.Coord, m *gamemap.Map) (actions []int, numActions 
 		}
 	}
 
-	nodes[curr.X][curr.Y][curr.D].coord = gamemap.Coord{X: curr.X, Y: curr.Y, D: curr.D}
+	curr := &nodes[orig.X][orig.Y][orig.D]
 
-	queue.PushCoord(curr, 0)
-	nodes[curr.X][curr.Y][curr.D].inheap = true
+	curr.coord = orig
+	heap.Push(&nh, curr)
+	curr.inheap = true
 
-	for curr.X != dest.X || curr.Y != dest.Y {
-		if queue.Len() == 0 { /* no path */
+	for curr.coord.X != dest.X || curr.coord.Y != dest.Y {
+		if nh.Len() == 0 {
 			return []int{}, 0
 		}
-		curr = heap.Pop(queue).(gamemap.Coord)
-		nodes[curr.X][curr.Y][curr.D].visited = true
-		nodes[curr.X][curr.Y][curr.D].inheap = false
 
-		if curr.X != dest.X || curr.Y != dest.Y {
-			for _, adj := range m.GetAdjacentPositions(curr) {
-				if m.Cells[adj.X][adj.Y].Status != gamemap.WALL &&
-					m.Cells[adj.X][adj.Y].Status != gamemap.DANGEROUS &&
-					m.Cells[adj.X][adj.Y].Status != gamemap.HOLE &&
-					m.Cells[adj.X][adj.Y].Status != gamemap.TELEPORT {
-					peek(adj, curr, dest, queue, &nodes, m)
+		curr = heap.Pop(&nh).(*node)
+		curr.inheap = false
+		curr.visited = true
+
+		if curr.coord.X != dest.X || curr.coord.Y != dest.Y {
+			for _, adj := range m.GetAdjacentPositions(curr.coord) {
+				adj_n := &nodes[adj.X][adj.Y][adj.D]
+
+				if c := &m.Cells[adj.X][adj.Y]; c.Status == gamemap.WALL ||
+					c.Status == gamemap.DANGEROUS ||
+					c.Status == gamemap.TELEPORT ||
+					c.Status == gamemap.HOLE {
+
+					c.Visited = true
+					continue
+
 				}
+
+				if adj_n.visited {
+					continue
+				} else if !adj_n.inheap {
+					adj_n.coord = adj
+					adj_n.d = 1
+					adj_n.h = manhattan(adj, dest)
+
+					adj_n.prev = curr
+					adj_n.g = adj_n.d + adj_n.prev.g
+					adj_n.f = adj_n.h + adj_n.g
+
+					adj_n.priority = adj_n.f
+
+					heap.Push(&nh, adj_n)
+					adj_n.inheap = true
+				} else if !adj_n.visited {
+					g := adj_n.d + curr.g
+					f := adj_n.h + g
+					if nh.TryUpdate(adj_n, f) {
+						adj_n.prev = curr
+						adj_n.g = g
+						adj_n.f = f
+					}
+				}
+
 			}
 		}
 	}
 
-	return path2actions(&nodes[curr.X][curr.Y][curr.D])
+	return path2actions(curr)
 }
 
-func peek(adj, curr, target gamemap.Coord, queue *CoordHeap, nodes *[][][]node, m *gamemap.Map) {
-	node := &(*nodes)[adj.X][adj.Y][adj.D]
-	prev := &(*nodes)[curr.X][curr.Y][curr.D]
-
-	if node.visited {
-		return
-	} else if !node.inheap {
-		node.coord = adj
-
-		switch m.Cells[adj.X][adj.Y].Status {
-		case gamemap.WALL:
-		case gamemap.DANGEROUS:
-		case gamemap.HOLE:
-		case gamemap.TELEPORT:
-			node.visited = true
-			return
-
-		default:
-			node.d = 1
-		}
-
-		if m.Cells[adj.X][adj.Y].DangerLevel > 0 {
-			node.d = 100
-		}
-
-		node.h = manhattan(target, node.coord)
-		node.prev = prev
-		node.g = node.d + node.prev.g
-		node.f = node.h + node.g
-		queue.PushCoord(adj, node.f)
-	} else if !node.visited {
-		g := node.d + prev.g
-		f := node.h + g
-		if queue.TryUpdate(node.coord, f) {
-			node.prev = prev
-			node.g = g
-			node.f = f
-		}
-	}
+func peek() {
 }
 
 func path2actions(n *node) (actions []int, numActions int) {

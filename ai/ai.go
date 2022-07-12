@@ -63,12 +63,11 @@ func (ai *AI) Think(mapChanged bool) {
 			ai.State = FETCHING_PU
 			ai.ActionStack = []int{}
 			ai.Dest = dest
-		} else if ai.State != FLEEING {
+		} else {
 			ai.State = FLEEING
 			ai.TimeRunnning = 0
 			ai.ActionStack = []int{}
 			ai.Dest = nil
-			ai.Gamemap.AddDanger(ai.Coord)
 		}
 		return
 	}
@@ -123,27 +122,23 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		ai.ActionStack = []int{}
 	}
 
-	if ai.TimeShooting == 10 {
-		ai.State = EXPLORING
-		return TURN_LEFT
-	}
-
 	switch ai.State {
 	case STOP:
 		return NOTHING
 
 	case ATTACKING:
+		ai.TimeShooting++
+		if ai.TimeShooting > 10 {
+			ai.State = EXPLORING
+			return TURN_LEFT
+		}
 		return ATTACK
 
 	case EXPLORING:
-		if ai.Observations&(gamemap.BLUELIGHT) != 0 {
-			*ai.Gamemap.GoldCells[gamemap.CellC{X: ai.Coord.X, Y: ai.Coord.Y}] = respawnTime
+		if r := ai.take(); r != nothing {
 			return TAKE
 		}
-		if ai.Observations&(gamemap.REDLIGHT) != 0 && ai.Energy < 100 {
-			*ai.Gamemap.PowerupCells[gamemap.CellC{X: ai.Coord.X, Y: ai.Coord.Y}] = respawnTime
-			return TAKE
-		}
+
 		if len(ai.ActionStack) == 0 {
 			if ai.Dest == nil || ai.Dest.X == ai.Coord.X && ai.Dest.Y == ai.Coord.Y {
 				dest := FindUnexplored(ai.Gamemap, ai.Coord)
@@ -183,6 +178,7 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		l := len(ai.ActionStack)
 		action := ai.ActionStack[l-1]
 		ai.ActionStack = ai.ActionStack[:l-1]
+
 		return action
 
 	case FETCHING_PU:
@@ -219,7 +215,8 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 				ai.Dest = ai.findPUToFetch()
 			}
 			if ai.Dest == nil {
-				ai.Dest = &gamemap.Coord{X: rand.Intn(ai.Gamemap.Width + 1), Y: rand.Intn(ai.Gamemap.Height + 1)}
+				dest := FindUnexplored(ai.Gamemap, ai.Coord)
+				ai.Dest = &dest
 			}
 			ai.ActionStack, _ = Astar(ai.Coord, *ai.Dest, ai.Gamemap)
 		}
@@ -315,8 +312,14 @@ func (ai *AI) findPUToFetch() *gamemap.Coord {
 }
 
 func FindUnexplored(m *gamemap.Map, c gamemap.Coord) gamemap.Coord {
+	for _, adj := range m.GetAdjacentCells(c) {
+		if m.Cells[adj.X][adj.Y].Status == gamemap.SAFE {
+			return adj
+		}
+	}
+
 	for len(m.ExploreStack) > 0 {
-		if c, s := m.StackPop(); s {
+		if c, s := m.StackRandomPop(); s {
 			return c
 		}
 	}

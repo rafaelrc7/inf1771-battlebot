@@ -1,6 +1,9 @@
 package gamemap
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand"
+)
 
 const danger_decay = 1
 const danger_base = 50
@@ -115,11 +118,13 @@ func (m *Map) VisitCell(c Coord, senses uint) bool {
 			if m.isPossibleHole(ac) || m.isPossibleTeleport(ac) {
 				if *status != DANGEROUS {
 					*status = DANGEROUS
+					m.StackRemove(Coord{X: ac.X, Y: ac.Y})
 					hasChanged = true
 				}
 			} else {
 				if *status != SAFE {
 					*status = SAFE
+					m.StackPush(Coord{X: ac.X, Y: ac.Y})
 					hasChanged = true
 				}
 			}
@@ -248,6 +253,11 @@ func (m *Map) isPossibleTeleport(c Coord) bool {
 
 func (m *Map) StackPush(c Coord) {
 	cell := &m.Cells[c.X][c.Y]
+	for _, v := range m.ExploreStack {
+		if v == c {
+			return
+		}
+	}
 	if cell.Status == SAFE && !cell.Stacked {
 		m.ExploreStack = append(m.ExploreStack, c)
 		cell.Stacked = true
@@ -265,6 +275,34 @@ func (m *Map) StackPop() (c Coord, success bool) {
 		m.ExploreStack = m.ExploreStack[:l-1]
 		if m.Cells[c.X][c.Y].Status == SAFE {
 			return c, true
+		}
+	}
+}
+
+func (m *Map) StackRandomPop() (c Coord, success bool) {
+	for {
+		if len(m.ExploreStack) == 0 {
+			return c, false
+		}
+
+		l := len(m.ExploreStack)
+
+		i := rand.Intn(l)
+
+		c = m.ExploreStack[i]
+		m.ExploreStack = append(m.ExploreStack[:i], m.ExploreStack[i+1:]...)
+		if m.Cells[c.X][c.Y].Status == SAFE {
+			return c, true
+		}
+	}
+}
+
+func (m *Map) StackRemove(c Coord) {
+	for k, v := range m.ExploreStack {
+		if v == c {
+			m.ExploreStack = append(m.ExploreStack[:k], m.ExploreStack[k+1:]...)
+			m.Cells[v.X][v.Y].Stacked = false
+			return
 		}
 	}
 }

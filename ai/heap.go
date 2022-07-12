@@ -2,52 +2,52 @@ package ai
 
 import (
 	"container/heap"
-	"github.com/rafaelrc7/inf1771-battlebot/gamemap"
 )
 
-type CoordCost struct {
-	Coord    gamemap.Coord
-	Priority float64
-}
+type nodeHeap []*node
 
-type CoordHeap []*CoordCost
-
-func CoordHeapNew() *CoordHeap {
-	h := &CoordHeap{}
+func nodeHeapNew() *nodeHeap {
+	h := &nodeHeap{}
 	return h
 }
 
-func (h CoordHeap) Len() int           { return len(h) }
-func (h CoordHeap) Less(i, j int) bool { return h[i].Priority < h[j].Priority }
-func (h CoordHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-func (h *CoordHeap) Push(x any) {
-	*h = append(*h, x.(*CoordCost))
+func (h nodeHeap) Len() int           { return len(h) }
+func (h nodeHeap) Less(i, j int) bool { return h[i].priority < h[j].priority }
+
+func (h nodeHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index = i
+	h[j].index = j
 }
-func (h *CoordHeap) Pop() any {
+
+func (h *nodeHeap) Push(x any) {
+	n := len(*h)
+	no := x.(*node)
+	no.index = n
+	*h = append(*h, no)
+}
+
+func (h *nodeHeap) Pop() any {
 	old := *h
 	n := len(old)
-	c := old[n-1].Coord
+	no := old[n-1]
+	no.index = -1
 	old[n-1] = nil
 	*h = old[0 : n-1]
-	return c
+	return no
 }
 
-func (h *CoordHeap) PushCoord(c gamemap.Coord, priority float64) {
-	heap.Push(h, &CoordCost{Coord: c, Priority: priority})
-}
-
-func (h *CoordHeap) TryUpdate(c gamemap.Coord, priority float64) bool {
-	for i, v := range *h {
-		if c == v.Coord {
-			if priority < v.Priority {
-				v.Priority = priority
-				heap.Fix(h, i)
-				return true
-			} else {
-				return false
-			}
-		}
+func (h *nodeHeap) TryUpdate(no *node, p float64) bool {
+	if no.index == -1 {
+		return false
 	}
+
+	if p >= no.priority {
+		return false
+	}
+
+	no.priority = p
+	heap.Fix(h, no.index)
 
 	return false
 }

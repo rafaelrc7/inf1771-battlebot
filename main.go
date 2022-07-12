@@ -25,23 +25,23 @@ const height = 34
 
 const (
 	gameover = iota
-	ready    = iota
-	game     = iota
-	dead     = iota
+	ready
+	game
+	dead
 )
 
 const (
-	Xi          = iota
-	Yi          = iota
-	Di          = iota
-	SCOREi      = iota
-	ENERGYi     = iota
-	GAMESTATUSi = iota
-	TIMEi       = iota
-	HITi        = iota
-	DAMAGEi     = iota
-	OBSi        = iota
-	ENEMYi      = iota
+	Xi = iota + 1
+	Yi
+	Di
+	SCOREi
+	ENERGYi
+	GAMESTATUSi
+	TIMEi
+	HITi
+	DAMAGEi
+	OBSi
+	ENEMYi
 )
 
 type GameState struct {
@@ -130,9 +130,13 @@ func botLoop(msgs chan message, c *Client) {
 							status.state = msg.info
 						}
 					case OBSi:
-						status.ai.Observations = msg.infou
+						status.ai.Observations |= msg.infou
 					case ENEMYi:
 						status.ai.EnemyDetected = true
+					case HITi:
+						status.ai.Observations |= gamemap.HIT
+					case DAMAGEi:
+						status.ai.Observations |= gamemap.DAMAGE
 					}
 				default:
 					is_msgs_empty = true
@@ -149,6 +153,7 @@ func botLoop(msgs chan message, c *Client) {
 			}
 
 			status.lastCoord = status.ai.Coord
+			status.ai.Gamemap.Print(status.ai.Coord)
 
 			if status.ai.Energy > 0 {
 				status.ai.Think(hasChanged)
