@@ -56,7 +56,7 @@ func Astar(orig, dest gamemap.Coord, m *gamemap.Map) (actions []int, numActions 
 					c.Status == gamemap.TELEPORT ||
 					c.Status == gamemap.HOLE {
 
-					c.Visited = true
+					adj_n.visited = true
 					continue
 
 				}
@@ -91,9 +91,6 @@ func Astar(orig, dest gamemap.Coord, m *gamemap.Map) (actions []int, numActions 
 	}
 
 	return path2actions(curr)
-}
-
-func peek() {
 }
 
 func path2actions(n *node) (actions []int, numActions int) {

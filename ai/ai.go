@@ -76,7 +76,7 @@ func (ai *AI) Think(mapChanged bool) {
 		ai.State = EXPLORING
 	}
 
-	if ai.Observations&(gamemap.STEPS|gamemap.HIT) != 0 && !ai.EnemyDetected {
+	if ai.Observations&(gamemap.STEPS|gamemap.DAMAGE) != 0 && !ai.EnemyDetected {
 		if ai.State == FLEEING {
 			return
 		}

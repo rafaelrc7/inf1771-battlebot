@@ -324,11 +324,11 @@ func handler(msgs chan message, cmd []string) {
 		}
 
 	case "h":
-		log.Print("hit received")
+		log.Print("enemy hit")
 		msgs <- message{t: HITi, info: 1}
 
 	case "d":
-		log.Print("damage inflicted")
+		log.Print("damage received")
 		msgs <- message{t: DAMAGEi, info: 1}
 
 	case "o":
