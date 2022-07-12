@@ -16,6 +16,12 @@ const (
 	FLEEING
 )
 
+const (
+	nothing = iota
+	gold
+	powerup
+)
+
 const minEnergy = 31
 const maxTicksRunning = 15
 const respawnTime = 150
@@ -43,13 +49,21 @@ func AIInit(m *gamemap.Map, c gamemap.Coord) AI {
 }
 
 func (ai *AI) Think(mapChanged bool) {
+	if ai.State == FETCHING_PU && ai.Energy == 100 {
+		ai.State = EXPLORING
+	}
+
 	if ai.Energy < minEnergy {
 		if ai.State == FETCHING_PU {
 			return
 		}
-		ai.State = FETCHING_PU
-		ai.ActionStack = []int{}
-		ai.Dest = nil
+		dest := ai.findPUToFetch()
+
+		if dest != nil {
+			ai.State = FETCHING_PU
+			ai.ActionStack = []int{}
+			ai.Dest = dest
+		}
 		return
 	}
 
@@ -71,16 +85,6 @@ func (ai *AI) Think(mapChanged bool) {
 
 	if ai.State != ATTACKING && ai.EnemyDetected {
 		ai.State = ATTACKING
-		ai.ActionStack = []int{}
-		ai.Dest = nil
-		return
-	}
-
-	if ai.Energy < 100 {
-		if ai.State == FETCHING_PU {
-			return
-		}
-		ai.State = FETCHING_PU
 		ai.ActionStack = []int{}
 		ai.Dest = nil
 		return
@@ -114,7 +118,6 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 
 	switch ai.State {
 	case STOP:
-		fmt.Println("---STOP----")
 		return NOTHING
 
 	case ATTACKING:
@@ -135,7 +138,6 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 				ai.Dest = &dest
 			}
 			ai.ActionStack, _ = Astar(ai.Coord, *ai.Dest, ai.Gamemap)
-			fmt.Printf("Going to: (%d, %d)\n", ai.Dest.X, ai.Dest.Y)
 		}
 		if len(ai.ActionStack) == 0 {
 			ai.Dest = nil
@@ -148,22 +150,21 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		return action
 
 	case FETCHING_GOLD:
-		if ai.Observations&(gamemap.BLUELIGHT) != 0 {
-			*ai.Gamemap.GoldCells[gamemap.CellC{X: ai.Coord.X, Y: ai.Coord.Y}] = respawnTime
-			ai.State = STOP
+		if r := ai.take(); r != nothing {
+			if r == gold {
+				ai.State = STOP
+			}
 			return TAKE
 		}
 
 		if len(ai.ActionStack) == 0 {
 			if ai.Dest == nil {
-				fmt.Println("---FETCHING_GOLD1----")
 				return NOTHING
 			}
 			ai.ActionStack, _ = Astar(ai.Coord, *ai.Dest, ai.Gamemap)
-			fmt.Printf("Fetching at: (%d, %d)\n", ai.Dest.X, ai.Dest.Y)
 		}
 		if len(ai.ActionStack) == 0 {
-			fmt.Println("---FETCHING_GOLD2----")
+			ai.State = EXPLORING
 			return NOTHING
 		}
 
@@ -173,9 +174,10 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		return action
 
 	case FETCHING_PU:
-		if ai.Observations&(gamemap.REDLIGHT) != 0 {
-			*ai.Gamemap.PowerupCells[gamemap.CellC{X: ai.Coord.X, Y: ai.Coord.Y}] = respawnTime
-			ai.State = STOP
+		if r := ai.take(); r != nothing {
+			if r == powerup {
+				ai.State = STOP
+			}
 			return TAKE
 		}
 
@@ -184,14 +186,12 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 				ai.Dest = ai.findPUToFetch()
 			}
 			if ai.Dest == nil {
-				fmt.Println("---FETCHING_PU1----")
-				return NOTHING
+				ai.State = EXPLORING
 			}
 			ai.ActionStack, _ = Astar(ai.Coord, *ai.Dest, ai.Gamemap)
-			fmt.Printf("Fetching at: (%d, %d)\n", ai.Dest.X, ai.Dest.Y)
 		}
 		if len(ai.ActionStack) == 0 {
-			fmt.Println("---FETCHING_PU2----")
+			ai.State = EXPLORING
 			return NOTHING
 		}
 
@@ -207,14 +207,11 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 				ai.Dest = ai.findPUToFetch()
 			}
 			if ai.Dest == nil {
-				fmt.Println("---FETCHING_PU1----")
 				return NOTHING
 			}
 			ai.ActionStack, _ = Astar(ai.Coord, *ai.Dest, ai.Gamemap)
-			fmt.Printf("Fetching at: (%d, %d)\n", ai.Dest.X, ai.Dest.Y)
 		}
 		if len(ai.ActionStack) == 0 {
-			fmt.Println("---FETCHING_PU2----")
 			return NOTHING
 		}
 
@@ -224,9 +221,29 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		return action
 
 	default:
-		fmt.Println("---DEFAULT----")
 		return NOTHING
 	}
+}
+
+func (ai *AI) take() int {
+	c := gamemap.CellC{X: ai.Coord.X, Y: ai.Coord.Y}
+	if ai.Observations&(gamemap.BLUELIGHT) != 0 {
+		if ai.Gamemap.GoldCells[c] == nil {
+			ai.Gamemap.GoldCells[c] = new(int)
+		}
+		*ai.Gamemap.GoldCells[c] = respawnTime
+		return gold
+	} else if ai.Observations&(gamemap.REDLIGHT) != 0 {
+		if ai.Gamemap.PowerupCells[c] == nil {
+			ai.Gamemap.PowerupCells[c] = new(int)
+		}
+		if ai.Energy < 100 {
+			*ai.Gamemap.PowerupCells[c] = respawnTime
+			return powerup
+		}
+	}
+
+	return nothing
 }
 
 func (ai *AI) findGoldToFetch() *gamemap.Coord {
