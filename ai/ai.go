@@ -28,11 +28,11 @@ const respawnTime = 150
 type AI struct {
 	State         int
 	ActionStack   []int
+	lastAction    int
 	Coord         gamemap.Coord
 	Dest          *gamemap.Coord
 	Energy        int
 	TimeRunnning  int
-	TimeShooting  int
 	Observations  uint
 	EnemyDetected bool
 	Gamemap       *gamemap.Map
@@ -92,7 +92,6 @@ func (ai *AI) Think(mapChanged bool) {
 		ai.State = ATTACKING
 		ai.ActionStack = []int{}
 		ai.Dest = nil
-		ai.TimeShooting = 0
 		return
 	}
 
@@ -127,8 +126,7 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 		return NOTHING
 
 	case ATTACKING:
-		ai.TimeShooting++
-		if ai.TimeShooting > 10 {
+		if ai.lastAction == ATTACK && ai.Observations&gamemap.HIT == 0 {
 			ai.State = EXPLORING
 			return TURN_LEFT
 		}
