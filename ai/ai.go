@@ -22,7 +22,7 @@ const (
 	powerup
 )
 
-const minEnergy = 31
+const minEnergy = 51
 const maxTicksRunning = 15
 const respawnTime = 150
 
@@ -33,6 +33,7 @@ type AI struct {
 	Dest          *gamemap.Coord
 	Energy        int
 	TimeRunnning  int
+	TimeShooting  int
 	Observations  uint
 	EnemyDetected bool
 	Gamemap       *gamemap.Map
@@ -87,6 +88,7 @@ func (ai *AI) Think(mapChanged bool) {
 		ai.State = ATTACKING
 		ai.ActionStack = []int{}
 		ai.Dest = nil
+		ai.TimeShooting = 0
 		return
 	}
 
@@ -114,6 +116,10 @@ func (ai *AI) Think(mapChanged bool) {
 func (ai *AI) GetDecision(mapChanged bool) int {
 	if mapChanged {
 		ai.ActionStack = []int{}
+	}
+
+	if ai.TimeShooting == 10 {
+		return TURN_LEFT
 	}
 
 	switch ai.State {
@@ -304,15 +310,10 @@ func (ai *AI) findPUToFetch() *gamemap.Coord {
 }
 
 func FindUnexplored(m *gamemap.Map, c gamemap.Coord) gamemap.Coord {
-	adjs := m.GetAdjacentCells(c)
-
-	for _, adj := range adjs {
-		if !m.Cells[adj.X][adj.Y].Visited &&
-			m.Cells[adj.X][adj.Y].Status != gamemap.WALL &&
-			m.Cells[adj.X][adj.Y].Status != gamemap.DANGEROUS &&
-			m.Cells[adj.X][adj.Y].Status != gamemap.HOLE &&
-			m.Cells[adj.X][adj.Y].Status != gamemap.TELEPORT {
-			return adj
+	for len(m.ExploreStack) > 0 {
+		fmt.Println(m.ExploreStack)
+		if c, s := m.StackPop(); s {
+			return c
 		}
 	}
 

@@ -10,6 +10,7 @@ type Cell struct {
 	Senses      uint
 	DangerLevel float64
 	Visited     bool
+	Stacked     bool
 }
 
 type Coord struct {
@@ -29,6 +30,8 @@ type Map struct {
 	Cells         [][]Cell
 	Height, Width int
 
+	ExploreStack []Coord
+
 	GoldCells    map[CellC]*int
 	PowerupCells map[CellC]*int
 	DangerCells  map[CellC]*Cell
@@ -44,6 +47,8 @@ func NewMap(h, w int) *Map {
 	for i := range m.Cells {
 		m.Cells[i] = make([]Cell, h+1)
 	}
+
+	m.ExploreStack = []Coord{}
 
 	m.GoldCells = make(map[CellC]*int)
 	m.PowerupCells = make(map[CellC]*int)
@@ -119,6 +124,8 @@ func (m *Map) VisitCell(c Coord, senses uint) bool {
 				}
 			}
 		}
+
+		m.StackPush(ac)
 	}
 
 	if senses&REDLIGHT != 0 {
@@ -237,4 +244,27 @@ func (m *Map) isPossibleTeleport(c Coord) bool {
 		}
 	}
 	return true
+}
+
+func (m *Map) StackPush(c Coord) {
+	cell := &m.Cells[c.X][c.Y]
+	if cell.Status == SAFE && !cell.Stacked {
+		m.ExploreStack = append(m.ExploreStack, c)
+		cell.Stacked = true
+	}
+}
+
+func (m *Map) StackPop() (c Coord, success bool) {
+	for {
+		if len(m.ExploreStack) == 0 {
+			return c, false
+		}
+
+		l := len(m.ExploreStack)
+		c = m.ExploreStack[l-1]
+		m.ExploreStack = m.ExploreStack[:l-1]
+		if m.Cells[c.X][c.Y].Status == SAFE {
+			return c, true
+		}
+	}
 }
