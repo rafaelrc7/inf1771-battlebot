@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"io"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -17,7 +18,6 @@ import (
 const host = "atari.icad.puc-rio.br"
 const port = "8888"
 
-const name = "xxxxxxx"
 const time_delta = 100 * time.Millisecond
 
 const width = 59
@@ -94,7 +94,7 @@ func botLoop(msgs chan message, c *Client) {
 		score: 0,
 	}
 
-	//sendName(c, name)
+	c.SendName(getRandomName())
 	c.SendColour(255, 0, 0)
 
 	for c.IsConnected {
@@ -258,10 +258,15 @@ func handler(msgs chan message, cmd []string) {
 		printScoreboard(cmd[1:])
 
 	case "g":
+		log.WithFields(log.Fields{
+			"time":  cmd[2],
+			"state": cmd[1],
+		}).Print("Game Status")
+
 		if st := getStateVal(cmd[1]); st != -1 {
 			msgs <- message{t: GAMESTATUSi, info: st}
 		} else {
-			log.Errorf("getStateVal(): invalid state %s", cmd[4])
+			log.Errorf("getStateVal(): invalid state %s", cmd[1])
 		}
 
 		if time, err := strconv.Atoi(cmd[2]); err == nil {
@@ -279,6 +284,7 @@ func handler(msgs chan message, cmd []string) {
 			"score":  cmd[5],
 			"energy": cmd[6],
 		}).Print("player stats")
+
 		if x, err := strconv.Atoi(cmd[1]); err == nil {
 			msgs <- message{t: Xi, info: x}
 		} else {
@@ -316,13 +322,20 @@ func handler(msgs chan message, cmd []string) {
 		}
 
 	case "h":
+		log.Print("hit received")
 		msgs <- message{t: HITi, info: 1}
 
 	case "d":
+		log.Print("damage inflicted")
 		msgs <- message{t: DAMAGEi, info: 1}
 
 	case "o":
 		obs := strings.Split(cmd[1], ",")
+
+		log.WithFields(log.Fields{
+			"senses": obs,
+		}).Printf("Observations")
+
 		msg := message{t: OBSi, infou: 0}
 		for _, o := range obs {
 			switch o {
@@ -483,4 +496,11 @@ func actionStr(action int) string {
 	default:
 		return "UNK"
 	}
+}
+
+func getRandomName() string {
+	names := []string{"Crusader", "Covenanter", "Cavalier", "Centaur",
+		"Cromwell", "Challenger", "Comet", "Centurion", "Conqueror",
+		"Chieftain", "Churchill", "TOG", "Valentine", "Matilda", "Contentious"}
+	return names[rand.Intn(len(names))]
 }
