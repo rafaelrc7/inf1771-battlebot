@@ -2,14 +2,14 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-)
 
-import (
+	log "github.com/sirupsen/logrus"
+
 	"github.com/rafaelrc7/inf1771-battlebot/ai"
 	"github.com/rafaelrc7/inf1771-battlebot/gamemap"
 )
@@ -62,22 +62,28 @@ type message struct {
 func main() {
 	messages := make(chan message, 100)
 
+	f, _ := os.Create(time.Now().Format("06-02-01_15-04-05.log"))
+	defer f.Close()
+
+	w := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(w)
+
 	c, err := ClientNew(host, port, []CmdHandler{
 		func(cmd []string) {
 			handler(messages, cmd)
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 		return
 	}
+
+	defer c.Disconnect()
 
 	time.Sleep(1 * time.Second)
 	go botLoop(messages, c)
 
 	bufio.NewReader(os.Stdin).ReadString('\n')
-
-	c.Disconnect()
 }
 
 func botLoop(msgs chan message, c *Client) {
@@ -126,7 +132,6 @@ func botLoop(msgs chan message, c *Client) {
 						status.ai.Energy = msg.info
 					case GAMESTATUSi:
 						if status.state != msg.info {
-							fmt.Printf("[SERVER]: New game state %d\n", msg.info)
 							status.state = msg.info
 						}
 					case OBSi:
@@ -153,16 +158,16 @@ func botLoop(msgs chan message, c *Client) {
 			}
 
 			status.lastCoord = status.ai.Coord
-			status.ai.Gamemap.Print(status.ai.Coord)
+
+			log.Infof("Tick: %d", status.tick)
 
 			if status.ai.Energy > 0 {
 				status.ai.Think(hasChanged)
-				fmt.Println("")
-				printState(status.ai.State)
 				decision := status.ai.GetDecision(hasChanged)
-				printAction(decision)
 				doDecision(c, decision)
 				status.lastAction = decision
+				log.Infof("State:  %s", stateStr(status.ai.State))
+				log.Infof("Action: %s", actionStr(decision))
 
 			} else {
 				if msgSeconds >= 5*time.Second {
@@ -177,13 +182,19 @@ func botLoop(msgs chan message, c *Client) {
 
 			end := time.Now()
 			if diff := end.Sub(start); diff < time_delta {
-				fmt.Printf("Computation took: %v\nWill wait: %v\n", diff, (time_delta - diff))
+				log.WithFields(log.Fields{
+					"Took":       diff,
+					"Will sleep": (time_delta - diff),
+				}).Print("Sleep")
 				time.Sleep(time_delta - diff)
 			}
 		} else {
 			status.ingame = false
 			c.SendRequestGameStatus()
-			c.SendRequestScoreboard()
+			if msgSeconds >= 10*time.Second {
+				c.SendRequestScoreboard()
+				msgSeconds = 0
+			}
 			for is_msgs_empty := false; !is_msgs_empty; {
 				select {
 				case msg := <-msgs:
@@ -191,7 +202,7 @@ func botLoop(msgs chan message, c *Client) {
 					case GAMESTATUSi:
 						if msg.info != status.state {
 							status.state = msg.info
-							fmt.Printf("[SERVER]: New game status %d\n", status.state)
+							log.Infof("New game status %d\n", status.state)
 						}
 					}
 				default:
@@ -210,53 +221,37 @@ func botLoop(msgs chan message, c *Client) {
 func handler(msgs chan message, cmd []string) {
 	switch strings.ToLower(cmd[0]) {
 	case "notification":
-		fmt.Printf("[SERVER] %s\n", strings.Join(cmd[1:], " "))
+		log.WithFields(log.Fields{
+			"command": cmd,
+		}).Printf("%s", strings.Join(cmd[1:], " "))
 
 	case "hello":
-		fmt.Printf("[SERVER] %s has joined the game!\n", cmd[1])
+		log.WithFields(log.Fields{
+			"command": cmd,
+			"player":  cmd[1],
+		}).Print("joined the game")
 
 	case "goodbye":
-		fmt.Printf("[SERVER] %s has left the game!\n", cmd[1])
+		log.WithFields(log.Fields{
+			"command": cmd,
+			"player":  cmd[1],
+		}).Print("left the game")
 
 	case "changename":
-		fmt.Printf("[SERVER] %s is now known as %s\n", cmd[1], cmd[2])
+		log.WithFields(log.Fields{
+			"command": cmd,
+		}).Printf("'%s' is now known as '%s'", cmd[1], cmd[2])
 
 	case "player":
-		fmt.Println(cmd)
 		if len(cmd) == 7 {
-			node, err := strconv.Atoi(cmd[1])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
-				return
-			}
-
-			name := cmd[2]
-
-			x, err := strconv.Atoi(cmd[3])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
-				return
-			}
-
-			y, err := strconv.Atoi(cmd[4])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
-				return
-			}
-
-			dir := getDirVal(cmd[5])
-			if dir == -1 {
-				fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid state %s\n", cmd[5])
-				return
-			}
-
-			state := getStateVal(cmd[6])
-			if dir == -1 {
-				fmt.Fprintf(os.Stderr, "[ERROR] getStateVal(): invalid state %s\n", cmd[6])
-				return
-			}
-
-			fmt.Printf("[PLAYER] %s (%d) %d %d,%d,%d\n", name, node, state, x, y, dir)
+			log.WithFields(log.Fields{
+				"name":  cmd[2],
+				"node":  cmd[1],
+				"x":     cmd[3],
+				"y":     cmd[4],
+				"dir":   cmd[5],
+				"state": cmd[6],
+			})
 		}
 
 	case "u":
@@ -266,51 +261,58 @@ func handler(msgs chan message, cmd []string) {
 		if st := getStateVal(cmd[1]); st != -1 {
 			msgs <- message{t: GAMESTATUSi, info: st}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid state %s\n", cmd[4])
+			log.Errorf("getStateVal(): invalid state %s", cmd[4])
 		}
 
 		if time, err := strconv.Atoi(cmd[2]); err == nil {
 			msgs <- message{t: TIMEi, info: time}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+			log.Errorf("Atoi(): %s", err)
 		}
 
 	case "s":
-		fmt.Println(cmd)
+		log.WithFields(log.Fields{
+			"x":      cmd[1],
+			"y":      cmd[2],
+			"d":      cmd[3],
+			"state":  cmd[4],
+			"score":  cmd[5],
+			"energy": cmd[6],
+		}).Print("player stats")
 		if x, err := strconv.Atoi(cmd[1]); err == nil {
 			msgs <- message{t: Xi, info: x}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+			log.Errorf("Atoi(): %s", err)
 		}
 
 		if y, err := strconv.Atoi(cmd[2]); err == nil {
 			msgs <- message{t: Yi, info: y}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+			log.Errorf("Atoi(): %s", err)
 		}
 
 		if d := getDirVal(cmd[3]); d != -1 {
 			msgs <- message{t: Di, info: d}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid dir %s\n", cmd[3])
+			log.Errorf("getDirVal(): invalid dir %s", cmd[3])
 		}
 
 		if st := getStateVal(cmd[4]); st != -1 {
 			msgs <- message{t: GAMESTATUSi, info: st}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] getDirVal(): invalid state %s\n", cmd[4])
+			log.Errorf("getStateVal(): invalid state %s", cmd[4])
 		}
 
 		if s, err := strconv.Atoi(cmd[5]); err == nil {
 			msgs <- message{t: SCOREi, info: s}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+			log.Errorf("Atoi(): %s", err)
 		}
 
 		if e, err := strconv.Atoi(cmd[6]); err == nil {
 			msgs <- message{t: ENERGYi, info: e}
 		} else {
-			fmt.Fprintf(os.Stderr, "[ERROR] Atoi(): %s\n", err)
+			log.Errorf("Atoi(): %s", err)
 		}
 
 	case "h":
@@ -348,7 +350,7 @@ func handler(msgs chan message, cmd []string) {
 					if dist, err := strconv.Atoi(enemy[1]); err == nil {
 						msgs <- message{t: ENEMYi, info: dist}
 					} else {
-						fmt.Fprintf(os.Stderr, "Atoi(): %s\n", err)
+						log.Errorf("Atoi(): %s", err)
 					}
 				}
 			}
@@ -359,7 +361,9 @@ func handler(msgs chan message, cmd []string) {
 		}
 
 	default:
-		fmt.Println(cmd)
+		log.WithFields(log.Fields{
+			"command": cmd,
+		}).Print("Unknown command")
 	}
 }
 
@@ -388,7 +392,6 @@ func doDecision(c *Client, decision int) {
 }
 
 func printScoreboard(scoreboard []string) {
-	fmt.Println("----- SCOREBOARD -----")
 	for i, s := range scoreboard {
 		info := strings.Split(s, "#")
 
@@ -402,9 +405,14 @@ func printScoreboard(scoreboard []string) {
 			hp = 0
 		}
 
-		fmt.Printf("%3d. %s (%s)\nHP = %3d - SCORE: %-6d\n\n", i, info[0], info[1], hp, score)
+		log.WithFields(log.Fields{
+			"name":   info[0],
+			"status": info[1],
+			"hp":     hp,
+			"score":  score,
+		}).Printf("score %d", i)
+
 	}
-	fmt.Println("----------------------")
 }
 
 func getStateVal(state string) int {
@@ -437,38 +445,42 @@ func getDirVal(state string) int {
 	return -1
 }
 
-func printState(state int) {
+func stateStr(state int) string {
 	switch state {
 	case ai.STOP:
-		fmt.Println("STATE: STOP")
+		return "STOP"
 	case ai.EXPLORING:
-		fmt.Println("STATE: EXPLORING")
+		return "EXPLORING"
 	case ai.FETCHING_GOLD:
-		fmt.Println("STATE: FETCHING_GOLD")
+		return "FETCHING_GOLD"
 	case ai.FETCHING_PU:
-		fmt.Println("STATE: FETCHING_PU")
+		return "FETCHING_PU"
 	case ai.ATTACKING:
-		fmt.Println("STATE: ATTACKING")
+		return "ATTACKING"
 	case ai.FLEEING:
-		fmt.Println("STATE: FLEEING")
+		return "FLEEING"
+	default:
+		return "UNK"
 	}
 }
 
-func printAction(action int) {
+func actionStr(action int) string {
 	switch action {
 	case ai.NOTHING:
-		fmt.Println("NOTHING")
+		return "NOTHING"
 	case ai.TURN_RIGHT:
-		fmt.Println("TURN_RIGHT")
+		return "TURN_RIGHT"
 	case ai.TURN_LEFT:
-		fmt.Println("TURN_LEFT")
+		return "TURN_LEFT"
 	case ai.FORWARD:
-		fmt.Println("FORWARD")
+		return "FORWARD"
 	case ai.BACKWARD:
-		fmt.Println("BACKWARD")
+		return "BACKWARD"
 	case ai.ATTACK:
-		fmt.Println("ATTACK")
+		return "ATTACK"
 	case ai.TAKE:
-		fmt.Println("TAKE")
+		return "TAKE"
+	default:
+		return "UNK"
 	}
 }
