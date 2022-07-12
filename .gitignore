@@ -9,8 +9,7 @@
 *.test
 *.out
 go.work
-/vendor/*
-!/vendor/modules.txt
+/vendor/
 /Godeps/
 *.log
 
