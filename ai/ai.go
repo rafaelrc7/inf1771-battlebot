@@ -207,7 +207,7 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 				ai.Dest = ai.findPUToFetch()
 			}
 			if ai.Dest == nil {
-				return NOTHING
+				ai.Dest = &gamemap.Coord{X: rand.Intn(ai.Gamemap.Width + 1), Y: rand.Intn(ai.Gamemap.Height + 1)}
 			}
 			ai.ActionStack, _ = Astar(ai.Coord, *ai.Dest, ai.Gamemap)
 		}
