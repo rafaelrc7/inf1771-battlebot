@@ -171,8 +171,9 @@ func botLoop(msgs chan message, c *Client) {
 				log.Infof("Action: %s", actionStr(decision))
 
 			} else {
-				if msgSeconds >= 5*time.Second {
+				if msgSeconds >= 10*time.Second {
 					c.SendRequestGameStatus()
+					c.SendRequestScoreboard()
 					msgSeconds = 0
 				}
 			}
