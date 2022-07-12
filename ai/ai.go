@@ -1,7 +1,6 @@
 package ai
 
 import (
-	"fmt"
 	"math/rand"
 
 	"github.com/rafaelrc7/inf1771-battlebot/gamemap"
@@ -64,6 +63,12 @@ func (ai *AI) Think(mapChanged bool) {
 			ai.State = FETCHING_PU
 			ai.ActionStack = []int{}
 			ai.Dest = dest
+		} else if ai.State != FLEEING {
+			ai.State = FLEEING
+			ai.TimeRunnning = 0
+			ai.ActionStack = []int{}
+			ai.Dest = nil
+			ai.Gamemap.AddDanger(ai.Coord)
 		}
 		return
 	}
@@ -119,6 +124,7 @@ func (ai *AI) GetDecision(mapChanged bool) int {
 	}
 
 	if ai.TimeShooting == 10 {
+		ai.State = EXPLORING
 		return TURN_LEFT
 	}
 
@@ -260,7 +266,6 @@ func (ai *AI) findGoldToFetch() *gamemap.Coord {
 		if v != nil {
 			go func(cell gamemap.Coord, spawntime int) {
 				_, dist := Astar(ai.Coord, cell, ai.Gamemap)
-				fmt.Printf("GOLD: (%d, %d) %d/%d\n", cell.X, cell.Y, dist, spawntime)
 				if dist > 0 && dist >= spawntime {
 					cells <- &cell
 				} else {
@@ -311,7 +316,6 @@ func (ai *AI) findPUToFetch() *gamemap.Coord {
 
 func FindUnexplored(m *gamemap.Map, c gamemap.Coord) gamemap.Coord {
 	for len(m.ExploreStack) > 0 {
-		fmt.Println(m.ExploreStack)
 		if c, s := m.StackPop(); s {
 			return c
 		}

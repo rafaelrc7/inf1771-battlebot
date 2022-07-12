@@ -141,7 +141,6 @@ func botLoop(msgs chan message, c *Client) {
 
 			hasChanged := status.ai.Gamemap.Tick()
 			hasChanged = hasChanged || status.ai.Gamemap.VisitCell(status.ai.Coord, status.ai.Observations)
-			status.ai.Gamemap.Print(status.ai.Coord)
 
 			if status.lastAction == ai.BACKWARD || status.lastAction == ai.FORWARD {
 				if status.ai.Coord == status.lastCoord {
@@ -170,8 +169,6 @@ func botLoop(msgs chan message, c *Client) {
 
 			end := time.Now()
 			if diff := end.Sub(start); diff < time_delta {
-				fmt.Println(diff)
-				fmt.Printf("STATE: %d\n", status.ai.State)
 				fmt.Printf("Computation took: %v\nWill wait: %v\n", diff, (time_delta - diff))
 				time.Sleep(time_delta - diff)
 			}
@@ -203,7 +200,6 @@ func botLoop(msgs chan message, c *Client) {
 }
 
 func handler(msgs chan message, cmd []string) {
-	fmt.Println(cmd)
 	switch strings.ToLower(cmd[0]) {
 	case "notification":
 		fmt.Printf("[SERVER] %s\n", strings.Join(cmd[1:], " "))
@@ -272,6 +268,7 @@ func handler(msgs chan message, cmd []string) {
 		}
 
 	case "s":
+		fmt.Println(cmd)
 		if x, err := strconv.Atoi(cmd[1]); err == nil {
 			msgs <- message{t: Xi, info: x}
 		} else {
@@ -362,30 +359,23 @@ func doDecision(c *Client, decision int) {
 	switch decision {
 	case ai.TURN_RIGHT:
 		c.SendTurnRight()
-		fmt.Println("RIGHT")
 
 	case ai.TURN_LEFT:
 		c.SendTurnLeft()
-		fmt.Println("LEFT")
 
 	case ai.FORWARD:
 		c.SendForward()
-		fmt.Println("FORWARD")
 
 	case ai.BACKWARD:
 		c.SendBackward()
-		fmt.Println("BACKWARD")
 
 	case ai.ATTACK:
 		c.SendShoot()
-		fmt.Println("SHOOT")
 
 	case ai.TAKE:
 		c.SendGetItem()
-		fmt.Println("TAKE")
 
 	case ai.NOTHING:
-		fmt.Println("NOTHING")
 	}
 }
 
