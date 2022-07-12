@@ -60,6 +60,7 @@ type message struct {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixMilli())
 	messages := make(chan message, 100)
 
 	f, _ := os.Create(time.Now().Format("06-02-01_15-04-05.log"))
