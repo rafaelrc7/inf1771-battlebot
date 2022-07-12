@@ -152,7 +152,10 @@ func botLoop(msgs chan message, c *Client) {
 
 			if status.ai.Energy > 0 {
 				status.ai.Think(hasChanged)
+				fmt.Println("")
+				printState(status.ai.State)
 				decision := status.ai.GetDecision(hasChanged)
+				printAction(decision)
 				doDecision(c, decision)
 				status.lastAction = decision
 
@@ -427,4 +430,40 @@ func getDirVal(state string) int {
 	}
 
 	return -1
+}
+
+func printState(state int) {
+	switch state {
+	case ai.STOP:
+		fmt.Println("STATE: STOP")
+	case ai.EXPLORING:
+		fmt.Println("STATE: EXPLORING")
+	case ai.FETCHING_GOLD:
+		fmt.Println("STATE: FETCHING_GOLD")
+	case ai.FETCHING_PU:
+		fmt.Println("STATE: FETCHING_PU")
+	case ai.ATTACKING:
+		fmt.Println("STATE: ATTACKING")
+	case ai.FLEEING:
+		fmt.Println("STATE: FLEEING")
+	}
+}
+
+func printAction(action int) {
+	switch action {
+	case ai.NOTHING:
+		fmt.Println("NOTHING")
+	case ai.TURN_RIGHT:
+		fmt.Println("TURN_RIGHT")
+	case ai.TURN_LEFT:
+		fmt.Println("TURN_LEFT")
+	case ai.FORWARD:
+		fmt.Println("FORWARD")
+	case ai.BACKWARD:
+		fmt.Println("BACKWARD")
+	case ai.ATTACK:
+		fmt.Println("ATTACK")
+	case ai.TAKE:
+		fmt.Println("TAKE")
+	}
 }
